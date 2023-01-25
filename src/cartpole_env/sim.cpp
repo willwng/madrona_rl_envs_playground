@@ -134,7 +134,7 @@ inline void resetSystem(Engine &ctx, WorldReset &reset)
     (void)terminate_sys;
     // (void) action_sys;
 
-    printf("Setup done\n");
+    // printf("Setup done\n");
 }
 
 
