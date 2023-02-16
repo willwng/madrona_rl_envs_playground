@@ -145,8 +145,26 @@ Manager::Impl * Manager::Impl::init(const Config &cfg)
         };
     }
 
-    // Increase this number before exporting more tensors
-    uint32_t num_exported_buffers = 5;
+    MWCudaExecutor mwgpu_exec({
+        .worldInitPtr = world_inits.data(),
+        .numWorldInitBytes = sizeof(WorldInit),
+        .numWorldDataBytes = sizeof(Sim),
+        .worldDataAlignment = alignof(Sim),
+        .numWorlds = cfg.numWorlds,
+        // Increase this number before exporting more tensors
+        .numExportedBuffers = 5, 
+        .gpuID = (uint32_t)cfg.gpuID,
+        .cameraMode = render::CameraMode::None,
+        .renderWidth = 0,
+        .renderHeight = 0,
+    }, {
+        "",
+        { CARTPOLE_SRC_LIST },
+        { CARTPOLE_COMPILE_FLAGS },
+        cfg.debugCompile ? CompileConfig::OptMode::Debug :
+            CompileConfig::OptMode::LTO,
+        CompileConfig::Executor::TaskGraph,
+    });
 
     if (cfg.execMode == ExecMode::CPU) {
         return new CPUImpl(cfg, app_cfg, episode_mgr, world_inits.data(),

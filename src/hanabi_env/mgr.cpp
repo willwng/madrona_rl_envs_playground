@@ -19,7 +19,7 @@ using namespace madrona::py;
 namespace Hanabi {
 
 using CPUExecutor =
-    TaskGraphExecutor<Engine, Sim, Config, WorldInit, RendererInitStub>;
+    TaskGraphExecutor<Engine, Sim, Config, WorldInit>;
 
 struct Manager::Impl {
     Config cfg;
@@ -52,7 +52,7 @@ struct Manager::CPUImpl final : public Manager::Impl {
                   .renderWidth = 0,
                   .renderHeight = 0,
                   .numExportedBuffers = num_exported_buffers,
-                  .cameraMode = ThreadPoolExecutor::CameraMode::None,
+                  .cameraMode = render::CameraMode::None,
                   .renderGPUID = 0,
               },
               app_cfg,
@@ -93,7 +93,7 @@ struct Manager::GPUImpl final : public Manager::Impl {
                   .numWorlds = cfg.numWorlds,
                   .numExportedBuffers = num_exported_buffers, 
                   .gpuID = (uint32_t)cfg.gpuID,
-                  .cameraMode = StateConfig::CameraMode::None,
+                  .cameraMode = render::CameraMode::None,
                   .renderWidth = 0,
                   .renderHeight = 0,
               }, {
