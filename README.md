@@ -4,7 +4,7 @@ Implementation of various RL Environments in Madrona
 
 ## Requirements
 
-To use Madrona, you need a CUDA version of at least 11.7 and a cmake version of at least 3.18. For these environments, you also need to have conda environments (miniconda/anaconda).
+To use Madrona with GPU, you need a CUDA version of at least 11.7 and a cmake version of at least 3.18. For these environments, you also need to have conda environments (miniconda/anaconda).
 
 To install miniconda (from miniconda3 instructions):
 ```
@@ -15,8 +15,6 @@ rm miniconda3/miniconda.sh
 miniconda3/bin/conda init bash
 # restart shell afterwards
 ```
-
-If you are using a mac, you will need to disable cuda and only use the CPU version of madrona. Go to CMakeLists.txt in the root directory and change MADRONA_REQUIRE_CUDA to OFF.
 
 
 ## Installation
