@@ -21,8 +21,9 @@ MAX_STATES = (NUM_SPACES ** 2)
 
 class BalanceMadronaTorch(MadronaEnv):
 
-    def __init__(self, num_envs, gpu_id, debug_compile=True):
+    def __init__(self, num_envs, gpu_id, debug_compile=True, use_cpu=False):
         sim = balance_python.BalanceBeamSimulator(
+            exec_mode = balance_python.ExecMode.CPU if use_cpu else balance_python.ExecMode.CUDA,
             gpu_id = gpu_id,
             num_worlds = num_envs,
             debug_compile = debug_compile,
@@ -151,6 +152,9 @@ class PantheonLine(MultiAgentEnv):
 STATIC_ENV = PantheonLine()
     
 def validate_step(states, actions, dones, nextstates, rewards, verbose=True):
+    states = torch.stack([x.obs for x in states])
+    nextstates = torch.stack([x.obs for x in nextstates])
+    
     STATIC_ENV.n_reset()
     
     numenvs = dones.size(0)

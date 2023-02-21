@@ -15,7 +15,7 @@ using namespace madrona::math;
 namespace Balance {
 
     
-void Sim::registerTypes(ECSRegistry &registry)
+void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
 {
     base::registerTypes(registry);
 
@@ -30,7 +30,7 @@ void Sim::registerTypes(ECSRegistry &registry)
     registry.registerComponent<ActiveAgent>();
     registry.registerComponent<Reward>();
 
-    registry.registerArchetype<Agent>();
+    registry.registerFixedSizeArchetype<Agent>(2);
 
     // Export tensors for pytorch
     registry.exportSingleton<WorldReset>(0);
@@ -156,7 +156,7 @@ static void resetWorld(Engine &ctx)
 
     
 
-void Sim::setupTasks(TaskGraph::Builder &builder)
+void Sim::setupTasks(TaskGraph::Builder &builder, const Config &cfg)
 {   
     auto action_sys = builder.addToGraph<ParallelForNode<Engine, actionSystem,
                                                      Action, Location>>({});
@@ -171,11 +171,11 @@ void Sim::setupTasks(TaskGraph::Builder &builder)
     (void)terminate_sys;
     // (void) action_sys;
 
-    printf("Setup done\n");
+    // printf("Setup done\n");
 }
 
 
-Sim::Sim(Engine &ctx, const WorldInit &init)
+Sim::Sim(Engine &ctx, const Config& cfg, const WorldInit &init)
     : WorldBase(ctx),
       episodeMgr(init.episodeMgr)
 {
@@ -204,6 +204,6 @@ Sim::Sim(Engine &ctx, const WorldInit &init)
     ctx.getSingleton<WorldReset>().resetNow = false;
 }
 
-MADRONA_BUILD_MWGPU_ENTRY(Engine, Sim, WorldInit);
+    MADRONA_BUILD_MWGPU_ENTRY(Engine, Sim, Config, WorldInit);
 
 }

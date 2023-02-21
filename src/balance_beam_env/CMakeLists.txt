@@ -2,15 +2,15 @@ set(SIMULATOR_SRCS
   sim.hpp sim.cpp
 )
 
-madrona_build_compile_defns(
-  OUT_TARGET
-  balance_example_gpu_srcs
-  SOURCES_DEFN
-  BALANCE_SRC_LIST
-  FLAGS_DEFN
-  BALANCE_COMPILE_FLAGS 
-  SRCS
-  ${SIMULATOR_SRCS}
+add_library(balance_example_cpu_impl STATIC
+    ${SIMULATOR_SRCS}
+)
+
+target_link_libraries(balance_example_cpu_impl 
+    PUBLIC
+        madrona_mw_core
+    PRIVATE
+        madrona_common
 )
 
 add_library(balance_example_mgr SHARED
@@ -19,11 +19,29 @@ add_library(balance_example_mgr SHARED
 
 target_link_libraries(balance_example_mgr PRIVATE
     madrona_python_utils
-    madrona_mw_gpu
     madrona_common
     madrona_importer
-    balance_example_gpu_srcs
+    balance_example_cpu_impl
+    madrona_mw_cpu
 )
+
+if (TARGET madrona_mw_gpu)
+    madrona_build_compile_defns(
+        OUT_TARGET
+            balance_example_gpu_srcs
+        SOURCES_DEFN
+            BALANCE_SRC_LIST
+        FLAGS_DEFN
+            BALANCE_COMPILE_FLAGS 
+        SRCS
+            ${SIMULATOR_SRCS}
+    )
+
+    target_link_libraries(balance_example_mgr PRIVATE
+    madrona_mw_gpu
+    balance_example_gpu_srcs
+    )
+endif ()
 
 target_compile_definitions(balance_example_mgr PRIVATE
     -DDATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../data/"

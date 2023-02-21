@@ -49,12 +49,13 @@ actions = torch.zeros((2, args.num_envs, 1), dtype=int).to(device=env.device)
 num_errors = 0
 
 # warp up
-for i in range(5):
+for _ in range(5):
     for i in range(2):
         logits = torch.rand(args.num_envs, env.action_space.n).to(device=env.device)
         logits[torch.logical_not(old_state[i].action_mask)] = -float('inf')
         actions[i, :, 0] = torch.max(logits, dim=1).indices  # torch.randint_like(actions, high=4)
     next_state, reward, next_done, _ = env.n_step(actions)
+    old_state = next_state
 
 time_stamps = [0 for i in range(args.num_steps * 2)]
 for iter in tqdm(range(args.num_steps), desc="Running Simulation"):

@@ -1,8 +1,6 @@
 #include "mgr.hpp"
 #include "sim.hpp"
 
-#include <madrona/mw_gpu.hpp>
-#include <madrona/cuda_utils.hpp>
 #include <madrona/utils.hpp>
 #include <madrona/importer.hpp>
 #include <madrona/mw_cpu.hpp>
@@ -13,13 +11,18 @@
 #include <fstream>
 #include <string>
 
+#ifdef MADRONA_CUDA_SUPPORT
+#include <madrona/mw_gpu.hpp>
+#include <madrona/cuda_utils.hpp>
+#endif
+
 using namespace madrona;
 using namespace madrona::py;
 
 namespace Cartpole {
 
 using CPUExecutor =
-    TaskGraphExecutor<Engine, Sim, Config, WorldInit, RendererInitStub>;
+    TaskGraphExecutor<Engine, Sim, Config, WorldInit>;
 
 struct Manager::Impl {
     Config cfg;
@@ -52,7 +55,7 @@ struct Manager::CPUImpl final : public Manager::Impl {
                   .renderWidth = 0,
                   .renderHeight = 0,
                   .numExportedBuffers = num_exported_buffers,
-                  .cameraMode = ThreadPoolExecutor::CameraMode::None,
+                  .cameraMode = render::CameraMode::None,
                   .renderGPUID = 0,
               },
               app_cfg,
@@ -74,6 +77,7 @@ struct Manager::CPUImpl final : public Manager::Impl {
     }
 };
 
+#ifdef MADRONA_CUDA_SUPPORT
 struct Manager::GPUImpl final : public Manager::Impl {
     MWCudaExecutor mwGPU;
 
@@ -93,7 +97,7 @@ struct Manager::GPUImpl final : public Manager::Impl {
                   .numWorlds = cfg.numWorlds,
                   .numExportedBuffers = num_exported_buffers, 
                   .gpuID = (uint32_t)cfg.gpuID,
-                  .cameraMode = StateConfig::CameraMode::None,
+                  .cameraMode = render::CameraMode::None,
                   .renderWidth = 0,
                   .renderHeight = 0,
               }, {
@@ -119,11 +123,13 @@ struct Manager::GPUImpl final : public Manager::Impl {
         return Tensor(dev_ptr, type, dims, cfg.gpuID);
     }
 };
+#endif
 
 Manager::Impl * Manager::Impl::init(const Config &cfg)
 {
     EpisodeManager *episode_mgr;
 
+    #ifdef MADRONA_CUDA_SUPPORT
     if (cfg.execMode == ExecMode::CPU ) {
         episode_mgr = (EpisodeManager *)malloc(sizeof(EpisodeManager));
         memset(episode_mgr, 0, sizeof(EpisodeManager));
@@ -134,6 +140,10 @@ Manager::Impl * Manager::Impl::init(const Config &cfg)
         // Set the current episode count to 0
         REQ_CUDA(cudaMemset(episode_mgr, 0, sizeof(EpisodeManager)));
     }
+    #else
+    episode_mgr = (EpisodeManager *)malloc(sizeof(EpisodeManager));
+    memset(episode_mgr, 0, sizeof(EpisodeManager));
+    #endif
 
     HeapArray<WorldInit> world_inits(cfg.numWorlds);
 
@@ -145,33 +155,20 @@ Manager::Impl * Manager::Impl::init(const Config &cfg)
         };
     }
 
-    MWCudaExecutor mwgpu_exec({
-        .worldInitPtr = world_inits.data(),
-        .numWorldInitBytes = sizeof(WorldInit),
-        .numWorldDataBytes = sizeof(Sim),
-        .worldDataAlignment = alignof(Sim),
-        .numWorlds = cfg.numWorlds,
-        // Increase this number before exporting more tensors
-        .numExportedBuffers = 5, 
-        .gpuID = (uint32_t)cfg.gpuID,
-        .cameraMode = render::CameraMode::None,
-        .renderWidth = 0,
-        .renderHeight = 0,
-    }, {
-        "",
-        { CARTPOLE_SRC_LIST },
-        { CARTPOLE_COMPILE_FLAGS },
-        cfg.debugCompile ? CompileConfig::OptMode::Debug :
-            CompileConfig::OptMode::LTO,
-        CompileConfig::Executor::TaskGraph,
-    });
+    uint32_t num_exported_buffers = 5;
+
 
     if (cfg.execMode == ExecMode::CPU) {
         return new CPUImpl(cfg, app_cfg, episode_mgr, world_inits.data(),
             num_exported_buffers);
     } else {
+        #ifdef MADRONA_CUDA_SUPPORT
         return new GPUImpl(cfg, app_cfg,
             episode_mgr, world_inits.data(), num_exported_buffers);
+        #else
+        return new CPUImpl(cfg, app_cfg, episode_mgr, world_inits.data(),
+            num_exported_buffers);
+        #endif
     }
 }
 

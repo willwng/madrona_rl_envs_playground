@@ -36,7 +36,10 @@ public:
 private:
     struct Impl;
     struct CPUImpl;
+
+    #ifdef MADRONA_CUDA_SUPPORT
     struct GPUImpl;
+    #endif
 
     std::unique_ptr<Impl> impl_;
 };

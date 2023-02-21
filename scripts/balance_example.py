@@ -1,4 +1,4 @@
-from envs.balance_beam_env import BalanceMadronaTorch, validate_step
+from envs.balance_beam_env import BalanceMadronaTorch, PantheonLine, validate_step
 import torch
 import time
 
@@ -16,33 +16,57 @@ parser.add_argument("--verbose", type=lambda x: bool(strtobool(x)), default=Fals
 parser.add_argument("--asserts", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
         help="if toggled, enable assertions to validate correctness")
 
+parser.add_argument("--use-cpu", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+        help="if toggled, use cpu version of madrona")
+parser.add_argument("--use-baseline", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+        help="if toggled, use baseline version")
+
 parser.add_argument("--validation", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
         help="if toggled, validate correctness")
 parser.add_argument("--debug-compile", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
         help="if toggled, use debug compilation mode")
 args = parser.parse_args()
 
-env = BalanceMadronaTorch(args.num_envs, 0, args.debug_compile)
+if args.use_baseline:
+    env = SyncVectorEnv(
+            [lambda: PantheonLine() for _ in range(args.num_envs)]
+        )
+else:
+    env = BalanceMadronaTorch(args.num_envs, 0, args.debug_compile, args.use_cpu)
+
 old_state = env.n_reset()
-old_state = torch.stack([x.obs for x in old_state])
-actions = env.static_actions
+actions = torch.zeros((2, args.num_envs, 1), dtype=int).to(device=env.device)
 num_errors = 0
-start_time = time.time()
+    
+# warp up
+for _ in range(5):
+    for i in range(2):
+        logits = torch.rand(args.num_envs, env.action_space.n).to(device=env.device)
+        logits[torch.logical_not(old_state[i].action_mask)] = -float('inf')
+        actions[i, :, 0] = torch.max(logits, dim=1).indices  # torch.randint_like(actions, high=4)
+    next_state, reward, next_done, _ = env.n_step(actions)
+    old_state = next_state
+
+time_stamps = [0 for i in range(args.num_steps * 2)]
 for iter in tqdm(range(args.num_steps), desc="Running Simulation"):
-    action = torch.randint_like(actions, high=4)
+    for i in range(2):
+        logits = torch.rand(args.num_envs, env.action_space.n).to(device=env.device)
+        logits[torch.logical_not(old_state[i].action_mask)] = -float('inf')
+        actions[i, :, 0] = torch.max(logits, dim=1).indices  # torch.randint_like(actions, high=4)
+    # print(actions)
 
-    next_state, reward, next_done, _ = env.n_step(action)
+    time_stamps[iter * 2] = time.time()
+    next_state, reward, next_done, _ = env.n_step(actions)
+    time_stamps[iter * 2 + 1] = time.time()
 
-    next_state = torch.stack([x.obs for x in next_state])
-
-    if args.validation and not validate_step(old_state, action, next_done, next_state, reward, verbose=args.verbose):
+    if args.validation and not validate_step(old_state, actions, next_done, next_state, reward, verbose=args.verbose):
         num_errors += 1
         assert(not args.asserts)
 
     old_state = next_state
-    # print(iter)
-    # time.sleep(1)
-    # print(reward)
-print("SPS:", args.num_steps / (time.time() - start_time))
+    
+time_difference = [time_stamps[i] - time_stamps[i-1] for i in range(1, len(time_stamps), 2)]
+assert(len(time_difference) == args.num_steps)
+print("step * worlds / sec:", args.num_envs / (sum(time_difference) / args.num_steps))
 if args.validation:
     print("Error rate:", num_errors/args.num_steps)

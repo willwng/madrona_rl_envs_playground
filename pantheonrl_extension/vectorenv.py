@@ -257,7 +257,7 @@ def to_torch(a):
 class MadronaEnv(VectorMultiAgentEnv):
 
     def __init__(self, num_envs, gpu_id, sim, debug_compile=True, obs_size=None, state_size=None, discrete_action_size=None):
-        super().__init__(num_envs, device=torch.device('cuda', gpu_id))
+        super().__init__(num_envs, device=torch.device('cuda', gpu_id) if torch.cuda.is_available() else torch.device('cpu'))
 
         self.sim = sim
 
@@ -272,7 +272,7 @@ class MadronaEnv(VectorMultiAgentEnv):
         self.static_rewards = self.sim.reward_tensor().to_torch()
         self.static_worldID = self.sim.world_id_tensor().to_torch().to(torch.long)
         self.static_agentID = self.sim.agent_id_tensor().to_torch().to(torch.long)
-
+        
         self.obs_size = self.static_observations.shape[2] if obs_size is None else obs_size
         self.state_size = self.static_agent_states.shape[2] if state_size is None else state_size
         self.discrete_action_size = self.static_action_masks.shape[2] if discrete_action_size is None else discrete_action_size
@@ -282,7 +282,7 @@ class MadronaEnv(VectorMultiAgentEnv):
         self.static_scattered_agent_states = self.static_agent_states.detach().clone()
         self.static_scattered_action_masks = self.static_action_masks.detach().clone()
         self.static_scattered_rewards = self.static_rewards.detach().clone()
-    
+
         self.static_scattered_active_agents[self.static_agentID, self.static_worldID] = self.static_active_agents
         self.static_scattered_observations[self.static_agentID, self.static_worldID, :] = self.static_observations
         self.static_scattered_agent_states[self.static_agentID, self.static_worldID, :] = self.static_agent_states
@@ -336,8 +336,9 @@ class MadronaEnv(VectorMultiAgentEnv):
 
 class SyncVectorEnv(VectorMultiAgentEnv):
 
-    def __init__(self, env_fns, device=torch.device('cuda', 0)):
-
+    def __init__(self, env_fns, device=None):
+        if device is None:
+            device = torch.device('cuda', 0) if torch.cuda.is_available() else torch.device('cpu')
         self.envs = [fn() for fn in env_fns]
         
         self.observation_space = self.envs[0].observation_space

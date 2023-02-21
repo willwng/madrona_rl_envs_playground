@@ -13,6 +13,9 @@
 
 namespace Balance {
 
+    struct RendererInitStub {};
+    struct Config {};
+
     // 3D Position & Quaternion Rotation
     // These classes are defined in madrona/components.hpp
 
@@ -58,11 +61,11 @@ namespace Balance {
     struct Agent : public madrona::Archetype<Action, Observation, Location, AgentID, ActionMask, ActiveAgent, Reward> {};
 
     struct Sim : public madrona::WorldBase {
-        static void registerTypes(madrona::ECSRegistry &registry);
+        static void registerTypes(madrona::ECSRegistry &registry, const Config &cfg);
 
-        static void setupTasks(madrona::TaskGraph::Builder &builder);
+        static void setupTasks(madrona::TaskGraph::Builder &builder, const Config &cfg);
 
-        Sim(Engine &ctx, const WorldInit &init);
+        Sim(Engine &ctx, const Config& cfg, const WorldInit &init);
 
         EpisodeManager *episodeMgr;
         RNG rng;

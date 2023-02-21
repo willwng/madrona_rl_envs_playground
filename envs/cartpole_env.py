@@ -39,6 +39,8 @@ class CartpoleMadronaNumpy(VectorEnv):
             dtype=np.float32,
         )
 
+        self.device = torch.device('cuda', gpu_id) if torch.cuda.is_available() else torch.device('cpu')
+
         action_space = spaces.Discrete(2)
         observation_space = spaces.Box(-high, high, dtype=np.float32)
         super().__init__(num_envs, observation_space, action_space)
@@ -90,6 +92,8 @@ class CartpoleMadronaTorch(VectorEnv):
             ],
             dtype=np.float32,
         )
+
+        self.device = torch.device('cuda', gpu_id) if torch.cuda.is_available() else torch.device('cpu')
 
         action_space = spaces.Discrete(2)
         observation_space = spaces.Box(-high, high, dtype=np.float32)

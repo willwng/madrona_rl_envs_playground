@@ -47,7 +47,7 @@ namespace Cartpole {
 
         static void setupTasks(madrona::TaskGraph::Builder &builder, const Config &cfg);
 
-        Sim(Engine &ctx, const WorldInit &init, const RendererInitStub &);
+        Sim(Engine &ctx, const Config& cfg, const WorldInit &init);
 
         EpisodeManager *episodeMgr;
         RNG rng;

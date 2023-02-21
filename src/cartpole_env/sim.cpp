@@ -138,7 +138,7 @@ inline void resetSystem(Engine &ctx, WorldReset &reset)
 }
 
 
-    Sim::Sim(Engine &ctx, const WorldInit &init, const RendererInitStub &)
+    Sim::Sim(Engine &ctx, const Config& cfg, const WorldInit &init)
     : WorldBase(ctx),
       episodeMgr(init.episodeMgr)
 {
@@ -160,6 +160,6 @@ inline void resetSystem(Engine &ctx, WorldReset &reset)
     ctx.getSingleton<WorldReset>().resetNow = false;
 }
 
-    MADRONA_BUILD_MWGPU_ENTRY(Engine, Sim, Config, WorldInit, RendererInitStub);
+    MADRONA_BUILD_MWGPU_ENTRY(Engine, Sim, Config, WorldInit);
 
 }

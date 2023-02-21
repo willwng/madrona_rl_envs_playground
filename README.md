@@ -16,6 +16,9 @@ miniconda3/bin/conda init bash
 # restart shell afterwards
 ```
 
+If you are using a mac, you will need to disable cuda and only use the CPU version of madrona. Go to CMakeLists.txt in the root directory and change MADRONA_REQUIRE_CUDA to OFF.
+
+
 ## Installation
 
 ```
@@ -25,8 +28,8 @@ pip install torch
 pip install numpy
 
 git clone https://github.com/bsarkar321/madrona_rl_envs
-git submodule update --init --recursive
 cd madrona_rl_envs
+git submodule update --init --recursive
 mkdir build
 cd build
 cmake ..
