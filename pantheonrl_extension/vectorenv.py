@@ -5,6 +5,8 @@ from dataclasses import dataclass
 
 from typing import Optional, List, Tuple
 
+import numpy as np
+
 import gym
 import torch
 

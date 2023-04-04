@@ -35,6 +35,10 @@ make -j 4
 cd ..
 
 pip install -e .
+
+cd overcooked_ai
+pip install -e .
+cd ..
 ```
 
 ## Running scripts
