@@ -148,19 +148,33 @@ Manager::Impl * Manager::Impl::init(const Config &cfg)
     HeapArray<WorldInit> world_inits(cfg.numWorlds);
 
     Overcooked::Config app_cfg {
-                  .terrain = cfg.terrain,
+                  // .terrain = cfg.terrain,
                   .height = cfg.height,
                   .width = cfg.width,
                   .num_players = cfg.num_players,
-                  .start_player_x = cfg.start_player_x,
-                  .start_player_y = cfg.start_player_y,
+                  // .start_player_x = cfg.start_player_x,
+                  // .start_player_y = cfg.start_player_y,
                   .placement_in_pot_rew = cfg.placement_in_pot_rew,
                   .dish_pickup_rew = cfg.dish_pickup_rew,
                   .soup_pickup_rew = cfg.soup_pickup_rew,
-                  .recipe_values = cfg.recipe_values,
-                  .recipe_times = cfg.recipe_times,
+                  // .recipe_values = cfg.recipe_values,
+                  // .recipe_times = cfg.recipe_times,
                   .horizon = cfg.horizon,
               };
+
+    for (int r = 0; r < NUM_RECIPES; r++) {
+        app_cfg.recipe_values[r] = cfg.recipe_values[r];
+        app_cfg.recipe_times[r] = cfg.recipe_times[r];
+    }
+
+    for (int p = 0; p < cfg.num_players; p++) {
+        app_cfg.start_player_x[p] = cfg.start_player_x[p];
+        app_cfg.start_player_y[p] = cfg.start_player_y[p];
+    }
+
+    for (int x = 0; x < cfg.height * cfg.width; x++) {
+        app_cfg.terrain[x] = (Overcooked::TerrainT)cfg.terrain[x];
+    }
 
     for (int64_t i = 0; i < (int64_t)cfg.numWorlds; i++) {
         world_inits[i] = WorldInit {

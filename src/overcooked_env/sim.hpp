@@ -26,17 +26,17 @@ namespace Overcooked {
 
     struct RendererInitStub {};
     struct Config {
-        IntVector terrain;
+        TerrainT terrain[MAX_SIZE];
         int64_t height;
         int64_t width;
         int64_t num_players;
-        IntVector start_player_x;
-        IntVector start_player_y;
+        uint8_t start_player_x[MAX_NUM_PLAYERS];
+        uint8_t start_player_y[MAX_NUM_PLAYERS];
         int64_t placement_in_pot_rew;
         int64_t dish_pickup_rew;
         int64_t soup_pickup_rew;
-        IntVector recipe_values;
-        IntVector recipe_times;
+        uint8_t recipe_values[NUM_RECIPES];
+        uint8_t recipe_times[NUM_RECIPES];
         int64_t horizon;        
     };
 
