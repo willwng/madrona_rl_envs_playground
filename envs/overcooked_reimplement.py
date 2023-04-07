@@ -19,6 +19,19 @@ DISH_SOURCE = 5
 SERVING = 6
 
 
+def move_in_direction(point, direction, width):
+    if direction == Action.NORTH:
+        return point - width
+    if direction == Action.SOUTH:
+        return point + width
+    if direction == Action.EAST:
+        return point + 1
+    if direction == Action.WEST:
+        return point - 1
+    if direction == Action.STAY:
+        return point
+
+
 class Action(object):
     NORTH = 0
     SOUTH = 1
@@ -28,19 +41,6 @@ class Action(object):
     INTERACT = 5
     ALL_ACTIONS = [NORTH, SOUTH, EAST, WEST, STAY, INTERACT]
     NUM_ACTIONS = len(ALL_ACTIONS)
-
-    @staticmethod
-    def move_in_direction(point, direction, width):
-        if direction == Action.NORTH:
-            return point - width
-        if direction == Action.SOUTH:
-            return point + width
-        if direction == Action.EAST:
-            return point + 1
-        if direction == Action.WEST:
-            return point - 1
-        if direction == Action.STAY:
-            return point
 
 
 class ObjectState(object):
@@ -288,7 +288,7 @@ class DummyMDP:
                 continue
 
             pos, o = player.position, player.orientation
-            i_pos = Action.move_in_direction(pos, o, self.width)
+            i_pos = move_in_direction(pos, o, self.width)
             terrain_type = self.get_terrain(i_pos)
 
             if terrain_type == COUNTER:
@@ -373,6 +373,6 @@ class DummyMDP:
         if action == Action.INTERACT:
             p.propose_pos_and_or(p.position, p.orientation)
         else:
-            new_pos = Action.move_in_direction(p.position, action, self.width)
+            new_pos = move_in_direction(p.position, action, self.width)
             new_orientation = p.orientation if action == Action.STAY else action
             p.propose_pos_and_or(p.position if self.get_terrain(new_pos) != AIR else new_pos, new_orientation)

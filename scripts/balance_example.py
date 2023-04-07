@@ -1,4 +1,7 @@
 from envs.balance_beam_env import BalanceMadronaTorch, PantheonLine, validate_step
+
+from pantheonrl_extension.vectorenv import SyncVectorEnv
+
 import torch
 import time
 

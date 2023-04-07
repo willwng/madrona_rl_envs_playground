@@ -1,5 +1,4 @@
-# from envs.hanabi_env import HanabiMadrona, PantheonHanabi, validate_step, config_choice
-from envs.overcooked_env import PantheonOvercooked, validate_step, init_validation, SimplifiedOvercooked, base_layout_params #, OvercookedMadrona
+from envs.overcooked_env import PantheonOvercooked, validate_step, init_validation, SimplifiedOvercooked, base_layout_params, OvercookedMadrona
 
 from pantheonrl_extension.vectorenv import SyncVectorEnv
 
@@ -10,30 +9,32 @@ import argparse
 
 from tqdm import tqdm
 
+import numpy as np
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--num-envs", type=int, default=32,
-        help="the number of parallel game environments")
+                    help="the number of parallel game environments")
 parser.add_argument("--num-steps", type=int, default=1000,
-        help="the number of steps to run in each environment per policy rollout")
+                    help="the number of steps to run in each environment per policy rollout")
 parser.add_argument("--verbose", default=False, nargs="?", const=True,
-        help="if toggled, enable assertions to validate correctness")
+                    help="if toggled, enable assertions to validate correctness")
 parser.add_argument("--asserts", default=False, nargs="?", const=True,
-        help="if toggled, enable assertions to validate correctness")
+                    help="if toggled, enable assertions to validate correctness")
 
 
 parser.add_argument("--use-cpu", default=False, nargs="?", const=True,
-        help="if toggled, use cpu version of madrona")
+                    help="if toggled, use cpu version of madrona")
 
 parser.add_argument("--use-baseline", default=False, nargs="?", const=True,
-        help="if toggled, use baseline version")
+                    help="if toggled, use baseline version")
 
 parser.add_argument("--validation", default=False, nargs="?", const=True,
-        help="if toggled, validate correctness")
+                    help="if toggled, validate correctness")
 parser.add_argument("--debug-compile", default=False, nargs="?", const=True,
-        help="if toggled, use debug compilation mode")
+                    help="if toggled, use debug compilation mode")
 parser.add_argument("--layout", type=str, default="cramped_room",
-                        choices=['cramped_room', 'coordination_ring', 'asymmetric_advantages_tomato', 'bonus_order_test'],
-                        help="Choice for overcooked layout.")
+                    choices=['cramped_room', 'coordination_ring', 'asymmetric_advantages_tomato', 'bonus_order_test'],
+                    help="Choice for overcooked layout.")
 args = parser.parse_args()
 
 print(base_layout_params(args.layout, 400))
@@ -43,14 +44,22 @@ if args.use_baseline:
             [lambda: SimplifiedOvercooked(args.layout) for _ in range(args.num_envs)]
         )
 else:
-    # env = OvercookedMadrona(args.layout, args.num_envs, 0, args.debug_compile, args.use_cpu)
+    env = OvercookedMadrona(args.layout, args.num_envs, 0, args.debug_compile, args.use_cpu)
     pass
 
 old_state = env.n_reset()
 actions = torch.zeros((2, args.num_envs, 1), dtype=int).to(device=env.device)
 num_errors = 0
 
-init_validation(args.layout, args.num_envs)
+orig_obs_valid = init_validation(args.layout, args.num_envs)
+
+old_state_numpy = np.array([x.obs.cpu().numpy() for x in old_state])
+
+for i in range(len(orig_obs_valid)):
+    truevalid = np.array([orig_obs_valid[i][0][0], orig_obs_valid[i][1][0]])
+    if not np.all(np.abs(truevalid - old_state_numpy[:, i]) == 0):
+        print(np.abs(truevalid - old_state_numpy[:, i]).nonzero())
+        assert False
 
 # warp up
 for _ in range(5):
@@ -77,7 +86,7 @@ for iter in tqdm(range(args.num_steps), desc="Running Simulation"):
         assert(not args.asserts)
 
     old_state = next_state
-    
+
 time_difference = [time_stamps[i] - time_stamps[i-1] for i in range(1, len(time_stamps), 2)]
 assert(len(time_difference) == args.num_steps)
 print("step * worlds / sec:", args.num_envs / (sum(time_difference) / args.num_steps))

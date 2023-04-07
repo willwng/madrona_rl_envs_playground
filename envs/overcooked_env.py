@@ -2,7 +2,8 @@ import gym
 import numpy as np
 
 from pantheonrl_extension.multiagentenv import MultiAgentEnv
-# from pantheonrl_extension.vectorenv import MadronaEnv
+from pantheonrl_extension.vectorenv import MadronaEnv
+from pantheonrl_extension.vectorobservation import VectorObservation
 
 from overcooked_ai_py.utils import read_layout_dict
 
@@ -10,51 +11,62 @@ from overcooked_ai_py.mdp.actions import Action
 from overcooked_ai_py.mdp.overcooked_mdp import OvercookedGridworld
 from overcooked_ai_py.mdp.overcooked_env import OvercookedEnv
 
-# import build.madrona_python as madrona_python
-# import build.madrona_overcooked_example_python as overcooked_python
+import build.madrona_python as madrona_python
+import build.madrona_overcooked_example_python as overcooked_python
 
 
-# class OvercookedMadrona(MadronaEnv):
+class OvercookedMadrona(MadronaEnv):
 
-#     def __init__(self, layout_name, num_envs, gpu_id, debug_compile=True, use_cpu=False, ego_agent_idx=0, horizon=400):
-#         self.layout_name = layout_name
-#         print(read_layout_dict(layout_name))
+    def __init__(self, layout_name, num_envs, gpu_id, debug_compile=True, use_cpu=False, ego_agent_idx=0, horizon=400):
+        self.layout_name = layout_name
+        self.base_layout_params = base_layout_params(layout_name, horizon)
+        self.width = self.base_layout_params['width']
+        self.height = self.base_layout_params['height']
+        self.num_players = self.base_layout_params['num_players']
+        self.size = self.width * self.height
 
-#         self.mdp = OvercookedGridworld.from_layout_name(self.layout_name)
-#         self.base_env = OvercookedEnv.from_mdp(self.mdp, horizon=horizon, info_level=0)
+        self.horizon = horizon
 
-#         layout_dict = read_layout_dict(layout_name)
-        
-        
-#         sim = overcooked_python.OvercookedSimulator(
-#             layout = read_layout_dict(layout_name),
-#             horizon = horizon,
-#             exec_mode = overcooked_python.ExecMode.CPU if use_cpu else overcooked_python.ExecMode.CUDA,
-#             gpu_id = gpu_id,
-#             num_worlds = num_envs,
-#             debug_compile = debug_compile,
-#         )
-#         super().__init__(num_envs, gpu_id, sim)
+        sim = overcooked_python.OvercookedSimulator(
+            exec_mode = overcooked_python.ExecMode.CPU if use_cpu else overcooked_python.ExecMode.CUDA,
+            gpu_id = gpu_id,
+            num_worlds = num_envs,
+            debug_compile = debug_compile,
+            **self.base_layout_params
+        )
+        full_obs_size = self.width * self.height * (5 * self.num_players + 16)
+        super().__init__(num_envs, gpu_id, sim, obs_size=full_obs_size, state_size=full_obs_size)
 
-#         self.ego_ind = ego_agent_idx
+        self.ego_ind = ego_agent_idx
 
-#         self.featurize_fn = lambda x: self.mdp.featurize_state(
-#             x, self.base_env.mlam)
+        self.observation_space = self._setup_observation_space()
+        self.share_observation_space = self.observation_space
+        self.action_space = gym.spaces.Discrete(Action.NUM_ACTIONS)
 
-#         self.observation_space = self._setup_observation_space()
-#         self.share_observation_space = self.observation_space
-#         self.action_space = gym.spaces.Discrete(Action.NUM_ACTIONS)
+        self.n_reset()
 
-#         self.n_reset()
+    def _setup_observation_space(self):
+        obs_shape = np.array([self.width, self.height, 5 * self.num_players + 16])
+        return gym.spaces.MultiBinary(obs_shape)
 
-#     def _setup_observation_space(self):
-#         dummy_state = self.mdp.get_standard_start_state()
-#         obs_shape = self.featurize_fn(dummy_state)[0].shape
-#         high = np.ones(obs_shape) * 5
-#         return gym.spaces.Box(high * 0, high, dtype=np.float64)
+    def n_step(self, actions):
+        obs, rews, dones, infos = super().n_step(actions)
 
-#     def get_mask(self):
-#         return np.array([1] * Action.NUM_ACTIONS, dtype=bool)
+        for ob in obs:
+            ob.obs = ob.obs.reshape((self.num_envs, self.height, self.width, -1)).transpose(1, 2)
+            ob.state = ob.obs
+        # modify obs and state
+        return obs, rews, dones, infos
+
+    def n_reset(self):
+        obs = super().n_reset()
+
+        for ob in obs:
+            ob.obs = ob.obs.reshape((self.num_envs, self.height, self.width, -1)).transpose(1, 2)
+            ob.state = ob.obs
+        # modify obs and state
+        return obs
+
 
 from .overcooked_reimplement import DummyMDP
 
@@ -300,6 +312,7 @@ def init_validation(layout_name, num_envs):
     VALIDATION_ENVS = [
         PantheonOvercooked(layout_name) for _ in range(num_envs)
     ]
+    return [x.n_reset()[1] for x in VALIDATION_ENVS]
 
 
 def validate_step(states, actions, dones, nextstates, rewards, verbose=True):
@@ -318,19 +331,19 @@ def validate_step(states, actions, dones, nextstates, rewards, verbose=True):
         truerewards = np.array([truerewards[0], truerewards[1]], dtype=np.float32)
         if not np.all(truerewards == rewards[:, i].cpu().numpy()):
             if verbose:
-                print("start state:", states[:, i], i)
+                # print("start state:", states[:, i], i)
                 print("action:", actions[:, i])
-                print("madrona transition:", nextstates[:, i])
-                print("numpy transition:", truenext)
+                # print("madrona transition:", nextstates[:, i])
+                # print("numpy transition:", truenext)
                 print(f"Rewards mismatch: numpy={truerewards}, madrona={rewards[:, i]}")
             retval = False
 
         if truedone != dones[i]:
             if verbose:
-                print("start state:", states[:, i], i)
+                # print("start state:", states[:, i], i)
                 print("action:", actions[:, i])
-                print("madrona transition:", nextstates[:, i])
-                print("numpy transition:", truenext)
+                # print("madrona transition:", nextstates[:, i])
+                # print("numpy transition:", truenext)
                 print(f"DONES mismatch: numpy={truedone}, madrona={dones[i] == 1}")
             retval = False
             # return False
@@ -341,10 +354,13 @@ def validate_step(states, actions, dones, nextstates, rewards, verbose=True):
 
         if not np.all(np.abs(truenext - nextstates[:,i]) == 0):
             if verbose:
-                print("start state:", states[:, i], i)
+                # print("start state:", states[:, i], i)
                 print("action:", actions[:, i])
-                print("madrona transition:", nextstates[:, i])
-                print("numpy transition:", truenext)
+                print(np.abs(truenext - nextstates[:, i]).nonzero())
+                print("madrona:", nextstates[:, i][np.abs(truenext - nextstates[:, i]).nonzero()])
+                print("numpy:", truenext[np.abs(truenext - nextstates[:, i]).nonzero()])
+                # print("madrona transition:", nextstates[:, i])
+                # print("numpy transition:", truenext)
                 print("TRANSITIONS are not equal")
             retval = False
 

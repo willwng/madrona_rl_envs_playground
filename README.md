@@ -72,6 +72,16 @@ python balance_example.py --num-envs 32
 python balance_train.py --num-envs 1000 --num-steps 10 --total-timesteps 40000000 --update-epochs 4
 ```
 
+For overcooked:
+
+```
+cd scripts
+
+# simulating the environment (madrona)
+# choose between cramped_room, asymmetric_advantages_tomato, bonus_order_test (manually edit overcooked_example to add more layouts)
+python overcooked_example.py --num-envs 32 --layout cramped_room
+```
+
 For hanabi:
 
 ```

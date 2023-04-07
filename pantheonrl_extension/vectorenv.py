@@ -259,7 +259,6 @@ def to_torch(a):
 class MadronaEnv(VectorMultiAgentEnv):
 
     def __init__(self, num_envs, gpu_id, sim, debug_compile=True, obs_size=None, state_size=None, discrete_action_size=None):
-        super().__init__(num_envs, device=torch.device('cuda', gpu_id) if torch.cuda.is_available() else torch.device('cpu'))
 
         self.sim = sim
 
@@ -291,6 +290,8 @@ class MadronaEnv(VectorMultiAgentEnv):
         self.static_scattered_action_masks[self.static_agentID, self.static_worldID, :] = self.static_action_masks
         self.static_scattered_rewards[self.static_agentID, self.static_worldID] = self.static_rewards
 
+        super().__init__(num_envs, device=torch.device('cuda', gpu_id) if torch.cuda.is_available() else torch.device('cpu'), n_players=self.static_observations.shape[0])
+
         self.infos = [{}] * self.num_envs
 
     def to_torch(self, a):
@@ -311,7 +312,7 @@ class MadronaEnv(VectorMultiAgentEnv):
                                  to_torch(self.static_scattered_observations[i, :, :self.obs_size]),
                                  to_torch(self.static_scattered_agent_states[i, :, :self.state_size]),
                                  to_torch(self.static_scattered_action_masks[i, :, :self.discrete_action_size].to(torch.bool)))
-               for i in range(2)]
+               for i in range(self.n_players)]
 
         # print(obs[0].active, obs[1].active)
         # print(self.static_active_agents)
@@ -330,7 +331,7 @@ class MadronaEnv(VectorMultiAgentEnv):
                                  to_torch(self.static_scattered_observations[i, :, :self.obs_size]),
                                  to_torch(self.static_scattered_agent_states[i, :, :self.state_size]),
                                  to_torch(self.static_scattered_action_masks[i, :, :self.discrete_action_size].to(torch.bool)))
-               for i in range(2)]
+               for i in range(self.n_players)]
         return obs
 
     def close(self, **kwargs):
