@@ -22,7 +22,8 @@ parser.add_argument("--asserts", type=lambda x: bool(strtobool(x)), default=Fals
 
 parser.add_argument("--use-cpu", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
         help="if toggled, use cpu version of madrona")
-
+parser.add_argument("--use-env-cpu", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+        help="if toggled, use cpu for env outputs")
 parser.add_argument("--use-baseline", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
         help="if toggled, use baseline version")
 
@@ -40,10 +41,11 @@ han_conf = config_choice[args.hanabi_type]
 
 if args.use_baseline:
     env = SyncVectorEnv(
-            [lambda: PantheonHanabi(han_conf) for _ in range(args.num_envs)]
+            [lambda: PantheonHanabi(han_conf) for _ in range(args.num_envs)],
+            device = torch.device('cpu') if args.use_env_cpu else None
         )
 else:
-    env = HanabiMadrona(args.num_envs, 0, args.debug_compile, han_conf, args.use_cpu)
+    env = HanabiMadrona(args.num_envs, 0, args.debug_compile, han_conf, args.use_cpu, args.use_env_cpu)
 old_state = env.n_reset()
 actions = torch.zeros((2, args.num_envs, 1), dtype=int).to(device=env.device)
 num_errors = 0

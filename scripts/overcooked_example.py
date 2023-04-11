@@ -24,7 +24,8 @@ parser.add_argument("--asserts", default=False, nargs="?", const=True,
 
 parser.add_argument("--use-cpu", default=False, nargs="?", const=True,
                     help="if toggled, use cpu version of madrona")
-
+parser.add_argument("--use-env-cpu", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+        help="if toggled, use cpu for env outputs")
 parser.add_argument("--use-baseline", default=False, nargs="?", const=True,
                     help="if toggled, use baseline version")
 
@@ -41,10 +42,11 @@ print(base_layout_params(args.layout, 400))
 
 if args.use_baseline:
     env = SyncVectorEnv(
-            [lambda: SimplifiedOvercooked(args.layout) for _ in range(args.num_envs)]
+            [lambda: SimplifiedOvercooked(args.layout) for _ in range(args.num_envs)],
+            device = torch.device('cpu') if args.use_env_cpu else None
         )
 else:
-    env = OvercookedMadrona(args.layout, args.num_envs, 0, args.debug_compile, args.use_cpu)
+    env = OvercookedMadrona(args.layout, args.num_envs, 0, args.debug_compile, args.use_cpu, args.use_env_cpu)
     pass
 
 old_state = env.n_reset()

@@ -20,7 +20,8 @@ parser.add_argument("--asserts", type=lambda x: bool(strtobool(x)), default=Fals
 
 parser.add_argument("--use-cpu", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
         help="if toggled, use cpu version of madrona")
-
+parser.add_argument("--use-env-cpu", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+        help="if toggled, use cpu for env outputs")
 parser.add_argument("--use-baseline", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
         help="if toggled, use baseline version")
 
@@ -32,11 +33,11 @@ args = parser.parse_args()
 
 if args.use_baseline:
     env = gym.vector.SyncVectorEnv(
-            [lambda: CartpoleNumpy() for _ in range(args.num_envs)]
+            [lambda: CartpoleNumpy() for _ in range(args.num_envs)],
         )
     actions = torch.zeros((args.num_envs), dtype=int)
 else:
-    env = CartpoleMadronaTorch(args.num_envs, 0, args.debug_compile, args.use_cpu)
+    env = CartpoleMadronaTorch(args.num_envs, 0, args.debug_compile, args.use_cpu, args.use_env_cpu)
     actions = torch.zeros((args.num_envs), dtype=int).to(device=env.device)
 
 

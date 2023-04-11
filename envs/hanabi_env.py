@@ -72,7 +72,7 @@ config_choice = {
 
 class HanabiMadrona(MadronaEnv):
 
-    def __init__(self, num_envs, gpu_id, debug_compile=True, config=None, use_cpu=False):
+    def __init__(self, num_envs, gpu_id, debug_compile=True, config=None, use_cpu=False, use_env_cpu=False):
         self.config = (config if config is not None else DEFAULT_CONFIG)
         self.hanabi_env = HanabiEnv(config=self.config)
         observation_shape = self.hanabi_env.vectorized_observation_shape()
@@ -98,7 +98,11 @@ class HanabiMadrona(MadronaEnv):
 
         self.share_observation_space = MultiBinary(state_size)
 
-        super().__init__(num_envs=num_envs, gpu_id=gpu_id, sim=sim, debug_compile=debug_compile, obs_size=obs_size, state_size=state_size, discrete_action_size=self.hanabi_env.game.max_moves())
+        device = None
+        if use_env_cpu:
+            device = torch.device('cpu')
+        
+        super().__init__(num_envs=num_envs, gpu_id=gpu_id, sim=sim, debug_compile=debug_compile, obs_size=obs_size, state_size=state_size, discrete_action_size=self.hanabi_env.game.max_moves(), env_device=device)
         
         
 

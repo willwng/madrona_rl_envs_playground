@@ -82,7 +82,7 @@ class CartpoleMadronaNumpy(VectorEnv):
 
 class CartpoleMadronaTorch(VectorEnv):
 
-    def __init__(self, num_envs, gpu_id, debug_compile=True, use_cpu=False):
+    def __init__(self, num_envs, gpu_id, debug_compile=True, use_cpu=False, use_env_cpu=False):
         high = np.array(
             [
                 X_THRESHOLD * 2,
@@ -93,7 +93,10 @@ class CartpoleMadronaTorch(VectorEnv):
             dtype=np.float32,
         )
 
-        self.device = torch.device('cuda', gpu_id) if torch.cuda.is_available() else torch.device('cpu')
+        if use_env_cpu:
+            self.device = torch.device('cpu')
+        else:
+            self.device = torch.device('cuda', gpu_id) if torch.cuda.is_available() else torch.device('cpu')
 
         action_space = spaces.Discrete(2)
         observation_space = spaces.Box(-high, high, dtype=np.float32)
@@ -118,6 +121,9 @@ class CartpoleMadronaTorch(VectorEnv):
 
         self.infos = [{}] * self.num_envs
 
+    def to_torch(self, a):
+        return a[:,0].detach().clone().to(self.device)
+
     def step(self, actions):
         self.static_actions.copy_(actions[:, None, None])
         
@@ -126,10 +132,10 @@ class CartpoleMadronaTorch(VectorEnv):
         # print(self.static_worldID)
         torch.gather(self.static_dones, 0, self.static_worldID, out=self.static_gathers)
 
-        return to_torch(self.static_observations), to_torch(self.static_rewards), to_torch(self.static_gathers), self.infos
+        return self.to_torch(self.static_observations), self.to_torch(self.static_rewards), self.to_torch(self.static_gathers), self.infos
 
     def reset(self):
-        return to_torch(self.static_observations)
+        return self.to_torch(self.static_observations)
 
     def close(self, **kwargs):
         pass

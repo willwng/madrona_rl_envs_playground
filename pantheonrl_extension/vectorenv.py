@@ -258,7 +258,7 @@ def to_torch(a):
 
 class MadronaEnv(VectorMultiAgentEnv):
 
-    def __init__(self, num_envs, gpu_id, sim, debug_compile=True, obs_size=None, state_size=None, discrete_action_size=None):
+    def __init__(self, num_envs, gpu_id, sim, debug_compile=True, obs_size=None, state_size=None, discrete_action_size=None, env_device=None):
 
         self.sim = sim
 
@@ -290,7 +290,10 @@ class MadronaEnv(VectorMultiAgentEnv):
         self.static_scattered_action_masks[self.static_agentID, self.static_worldID, :] = self.static_action_masks
         self.static_scattered_rewards[self.static_agentID, self.static_worldID] = self.static_rewards
 
-        super().__init__(num_envs, device=torch.device('cuda', gpu_id) if torch.cuda.is_available() else torch.device('cpu'), n_players=self.static_observations.shape[0])
+        if env_device is None:
+            env_device = torch.device('cuda', gpu_id) if torch.cuda.is_available() else torch.device('cpu')
+        
+        super().__init__(num_envs, device=env_device, n_players=self.static_observations.shape[0])
 
         self.infos = [{}] * self.num_envs
 
@@ -298,6 +301,8 @@ class MadronaEnv(VectorMultiAgentEnv):
         return a.detach().clone().to(self.device)
 
     def n_step(self, actions):
+        actions_device = self.static_agentID.get_device()
+        actions = actions.to(actions_device if actions_device != -1 else torch.device('cpu'))
         self.static_actions.copy_(actions[self.static_agentID, self.static_worldID, :])
 
         self.sim.step()
@@ -308,10 +313,10 @@ class MadronaEnv(VectorMultiAgentEnv):
         self.static_scattered_action_masks[self.static_agentID, self.static_worldID, :] = self.static_action_masks
         self.static_scattered_rewards[self.static_agentID, self.static_worldID] = self.static_rewards
 
-        obs = [VectorObservation(to_torch(self.static_scattered_active_agents[i].to(torch.bool)),
-                                 to_torch(self.static_scattered_observations[i, :, :self.obs_size]),
-                                 to_torch(self.static_scattered_agent_states[i, :, :self.state_size]),
-                                 to_torch(self.static_scattered_action_masks[i, :, :self.discrete_action_size].to(torch.bool)))
+        obs = [VectorObservation(self.to_torch(self.static_scattered_active_agents[i].to(torch.bool)),
+                                 self.to_torch(self.static_scattered_observations[i, :, :self.obs_size]),
+                                 self.to_torch(self.static_scattered_agent_states[i, :, :self.state_size]),
+                                 self.to_torch(self.static_scattered_action_masks[i, :, :self.discrete_action_size].to(torch.bool)))
                for i in range(self.n_players)]
 
         # print(obs[0].active, obs[1].active)
@@ -327,10 +332,10 @@ class MadronaEnv(VectorMultiAgentEnv):
         self.static_scattered_action_masks[self.static_agentID, self.static_worldID, :] = self.static_action_masks
         self.static_scattered_rewards[self.static_agentID, self.static_worldID] = self.static_rewards
 
-        obs = [VectorObservation(to_torch(self.static_scattered_active_agents[i].to(torch.bool)),
-                                 to_torch(self.static_scattered_observations[i, :, :self.obs_size]),
-                                 to_torch(self.static_scattered_agent_states[i, :, :self.state_size]),
-                                 to_torch(self.static_scattered_action_masks[i, :, :self.discrete_action_size].to(torch.bool)))
+        obs = [VectorObservation(self.to_torch(self.static_scattered_active_agents[i].to(torch.bool)),
+                                 self.to_torch(self.static_scattered_observations[i, :, :self.obs_size]),
+                                 self.to_torch(self.static_scattered_agent_states[i, :, :self.state_size]),
+                                 self.to_torch(self.static_scattered_action_masks[i, :, :self.discrete_action_size].to(torch.bool)))
                for i in range(self.n_players)]
         return obs
 
