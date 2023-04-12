@@ -18,24 +18,31 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.registerSingleton<WorldState>();
     
     registry.registerComponent<Action>();
-    registry.registerComponent<Observation>();
+    // registry.registerSingleton<Observation>();
     registry.registerComponent<PlayerState>();
     registry.registerComponent<AgentID>();
     registry.registerComponent<ActionMask>();
     registry.registerComponent<ActiveAgent>();
     registry.registerComponent<Reward>();
 
+    registry.registerComponent<LocationObservation>();
+    registry.registerComponent<LocationID>();
+
     registry.registerFixedSizeArchetype<Agent>(cfg.num_players);
+    registry.registerFixedSizeArchetype<LocationType>(cfg.width * cfg.height);
 
     // Export tensors for pytorch
     registry.exportSingleton<WorldReset>(0);
     registry.exportColumn<Agent, ActiveAgent>(1);
     registry.exportColumn<Agent, Action>(2);
-    registry.exportColumn<Agent, Observation>(3);
     registry.exportColumn<Agent, ActionMask>(4);
     registry.exportColumn<Agent, Reward>(5);
     registry.exportColumn<Agent, WorldID>(6);
     registry.exportColumn<Agent, AgentID>(7);
+
+    registry.exportColumn<LocationType, LocationObservation>(3);
+    registry.exportColumn<LocationType, WorldID>(8);
+    registry.exportColumn<LocationType, LocationID>(9);
 }
     inline TerrainT get_terrain(WorldState &ws, int32_t pos)
     {
@@ -57,100 +64,94 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
         return soup.cooking_tick >= 0 && soup.cooking_tick >= get_time(ws, soup);
     }
 
-    inline void observationSystem(Engine &ctx, AgentID &id, Observation& obs)
+    inline void observationSystem(Engine &ctx, LocationID&id, LocationObservation& obs)
 {
     WorldState &ws = ctx.getSingleton<WorldState>();
 
     int32_t shift = 5 * ws.num_players;
-    int bi = 0;
 
-    for (int pos = 0; pos < ws.size; pos++) {
-        bi = pos * (5 * ws.num_players + 16) + shift;
-        Object &obj = ws.objects[pos];
+    int pos = id.id;
 
-        if (ws.horizon - ws.timestep < 40) {
-            obs.x[bi + 15] = 1;
-        } else {
-            obs.x[bi + 15] = 0;
-        }
+    Object &obj = ws.objects[pos];
 
-        for (int to_reset = bi - shift; to_reset < bi; to_reset++) {
-            obs.x[to_reset] = 0;
-        }
+    if (ws.horizon - ws.timestep < 40) {
+        obs.x[shift + 15] = 1;
+    } else {
+        obs.x[shift + 15] = 0;
+    }
+
+    for (int to_reset = shift - shift; to_reset < shift; to_reset++) {
+        obs.x[to_reset] = 0;
+    }
         
-        obs.x[bi + 6] = 0;
-        obs.x[bi + 7] = 0;
-        obs.x[bi + 8] = 0;
-        obs.x[bi + 9] = 0;
-        obs.x[bi + 10] = 0;
-        obs.x[bi + 11] = 0;
-        obs.x[bi + 12] = 0;
-        obs.x[bi + 13] = 0;
-        obs.x[bi + 14] = 0;
+    obs.x[shift + 6] = 0;
+    obs.x[shift + 7] = 0;
+    obs.x[shift + 8] = 0;
+    obs.x[shift + 9] = 0;
+    obs.x[shift + 10] = 0;
+    obs.x[shift + 11] = 0;
+    obs.x[shift + 12] = 0;
+    obs.x[shift + 13] = 0;
+    obs.x[shift + 14] = 0;
 
-        if (obj.name == ObjectT::NONE) {
-            continue;
-        }
-
-        if (obj.name == ObjectT::SOUP) {
-            if (ws.terrain[pos] == TerrainT::POT) {
-                if (obj.cooking_tick < 0) {
-                    obs.x[bi + 6] = obj.num_onions;
-                    obs.x[bi + 7] = obj.num_tomatoes;
-                } else {
-                    obs.x[bi + 8] = obj.num_onions;
-                    obs.x[bi + 9] = obj.num_tomatoes;
-                    obs.x[bi + 10] = get_time(ws, obj) - obj.cooking_tick;
-                    if (is_ready(ws, obj)) {
-                        obs.x[bi + 11] = 1;
-                    }
-                }
+    if (obj.name == ObjectT::SOUP) {
+        if (ws.terrain[pos] == TerrainT::POT) {
+            if (obj.cooking_tick < 0) {
+                obs.x[shift + 6] = obj.num_onions;
+                obs.x[shift + 7] = obj.num_tomatoes;
             } else {
-                obs.x[bi + 8] = obj.num_onions;
-                obs.x[bi + 9] = obj.num_tomatoes;
-                obs.x[bi + 10] = 0;
-                obs.x[bi + 11] = 1;
+                obs.x[shift + 8] = obj.num_onions;
+                obs.x[shift + 9] = obj.num_tomatoes;
+                obs.x[shift + 10] = get_time(ws, obj) - obj.cooking_tick;
+                if (is_ready(ws, obj)) {
+                    obs.x[shift + 11] = 1;
+                }
             }
-        } else if (obj.name == ObjectT::DISH) {
-            obs.x[bi + 12] = 1;
-        } else if (obj.name == ObjectT::ONION) {
-            obs.x[bi + 13] = 1;
-        } else if (obj.name == ObjectT::TOMATO) {
-            obs.x[bi + 14] = 1;
+        } else {
+            obs.x[shift + 8] = obj.num_onions;
+            obs.x[shift + 9] = obj.num_tomatoes;
+            obs.x[shift + 10] = 0;
+            obs.x[shift + 11] = 1;
         }
+    } else if (obj.name == ObjectT::DISH) {
+        obs.x[shift + 12] = 1;
+    } else if (obj.name == ObjectT::ONION) {
+        obs.x[shift + 13] = 1;
+    } else if (obj.name == ObjectT::TOMATO) {
+        obs.x[shift + 14] = 1;
     }
 
     int other_i = 1;
     for (int i = 0; i < ws.num_players; i++) {
         PlayerState &ps = ctx.getUnsafe<PlayerState>(ctx.data().agents[i]);
 
-        int32_t pos = ps.position;
-
-        bi = pos * (5 * ws.num_players + 16);
+        int32_t pos2 = ps.position;
+        if (pos2 != pos) {
+            continue;
+        }
         
-        if (i == id.id) {
-            obs.x[bi] = 1;
-            obs.x[bi + ws.num_players + ps.orientation] = 1;
+        if (i == 0) {
+            obs.x[0] = 1;
+            obs.x[ws.num_players + ps.orientation] = 1;
         } else {
-            obs.x[bi + other_i] = 1;
-            obs.x[bi + ws.num_players + 4 * other_i + ps.orientation] = 1;
+            obs.x[other_i] = 1;
+            obs.x[ws.num_players + 4 * other_i + ps.orientation] = 1;
             other_i++;
         }
 
-        bi += shift;
         if (ps.has_object()) {
-            Object &obj = ps.get_object();
-            if (obj.name == ObjectT::SOUP) {
-                obs.x[bi + 8] = obj.num_onions;
-                obs.x[bi + 9] = obj.num_tomatoes;
-                obs.x[bi + 10] = 0;
-                obs.x[bi + 11] = 1;
-            } else if (obj.name == ObjectT::DISH) {
-                obs.x[bi + 12] = 1;
-            } else if (obj.name == ObjectT::ONION) {
-                obs.x[bi + 13] = 1;
-            } else if (obj.name == ObjectT::TOMATO) {
-                obs.x[bi + 14] = 1;
+            Object &obj2 = ps.get_object();
+            if (obj2.name == ObjectT::SOUP) {
+                obs.x[shift + 8] = obj2.num_onions;
+                obs.x[shift + 9] = obj2.num_tomatoes;
+                obs.x[shift + 10] = 0;
+                obs.x[shift + 11] = 1;
+            } else if (obj2.name == ObjectT::DISH) {
+                obs.x[shift + 12] = 1;
+            } else if (obj2.name == ObjectT::ONION) {
+                obs.x[shift + 13] = 1;
+            } else if (obj2.name == ObjectT::TOMATO) {
+                obs.x[shift + 14] = 1;
             }
         }
     }
@@ -414,7 +415,7 @@ void Sim::setupTasks(TaskGraph::Builder &builder, const Config &cfg)
     
     auto terminate_sys = builder.addToGraph<ParallelForNode<Engine, check_reset_system, WorldState>>({env_step_sys});
 
-    auto obs_sys = builder.addToGraph<ParallelForNode<Engine, observationSystem, AgentID, Observation>>({terminate_sys});
+    auto obs_sys = builder.addToGraph<ParallelForNode<Engine, observationSystem, LocationID, LocationObservation>>({terminate_sys});
 
     (void)obs_sys;
 }
@@ -427,6 +428,8 @@ Sim::Sim(Engine &ctx, const Config& cfg, const WorldInit &init)
     // Make a buffer that will last the duration of simulation for storing
     // agent entity IDs
     agents = (Entity *)rawAlloc(cfg.num_players * sizeof(Entity));
+
+    locations = (Entity *)rawAlloc(cfg.width * cfg.height * sizeof(Entity));
 
     WorldState &ws = ctx.getSingleton<WorldState>();
 
@@ -468,17 +471,6 @@ Sim::Sim(Engine &ctx, const Config& cfg, const WorldInit &init)
     for (int i = 0; i < cfg.num_players; i++) {
         agents[i] = ctx.makeEntityNow<Agent>();
         ctx.getUnsafe<Action>(agents[i]).choice = ActionT::NORTH;
-        for (int t = 0; t < MAX_SIZE * (5 * MAX_NUM_PLAYERS + 16); t++) {
-            ctx.getUnsafe<Observation>(agents[i]).x[t] = 0;
-        }
-
-        // SETUP Base Observation
-        for (int p = 0; p < cfg.height * cfg.width; p++) {
-            TerrainT t = (TerrainT) cfg.terrain[p];
-            if (t) {
-                ctx.getUnsafe<Observation>(agents[i]).x[p * (5 * cfg.num_players + 16) + t - 1 + 5 * cfg.num_players] = 1;
-            }
-        }
         
         ctx.getUnsafe<AgentID>(agents[i]).id = i;
         for (int t = 0; t < NUM_MOVES; t++) {
@@ -491,11 +483,20 @@ Sim::Sim(Engine &ctx, const Config& cfg, const WorldInit &init)
     // Initial reset
     resetWorld(ctx);
     ctx.getSingleton<WorldReset>().resetNow = false;
+    
+    // SETUP Base Observation
+    for (int p = 0; p < cfg.height * cfg.width; p++) {
+        locations[p] = ctx.makeEntityNow<LocationType>();
+        ctx.getUnsafe<LocationID>(locations[p]).id = p;
+        LocationObservation& obs = ctx.getUnsafe<LocationObservation>(locations[p]);
 
-    for (int i = 0; i < ws.num_players; i++) {
-        AgentID &id = ctx.getUnsafe<AgentID>(ctx.data().agents[i]);
-        Observation &obs = ctx.getUnsafe<Observation>(ctx.data().agents[i]);
-        observationSystem(ctx, id, obs);
+        TerrainT t = (TerrainT) cfg.terrain[p];
+        if (t) {
+            obs.x[t - 1 + 5 * cfg.num_players] = 1;
+        }
+
+        observationSystem(ctx, ctx.getUnsafe<LocationID>(locations[p]), obs);
+
     }
 }
 

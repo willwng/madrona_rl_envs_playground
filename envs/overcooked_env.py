@@ -35,8 +35,8 @@ class OvercookedMadrona(VectorMultiAgentEnv):
             debug_compile = debug_compile,
             **self.base_layout_params
         )
+        
         full_obs_size = self.width * self.height * (5 * self.num_players + 16)
-        # super().__init__(num_envs, gpu_id, sim, obs_size=full_obs_size, state_size=full_obs_size)
 
         self.sim = sim
 
@@ -44,11 +44,12 @@ class OvercookedMadrona(VectorMultiAgentEnv):
         self.static_active_agents = self.sim.active_agent_tensor().to_torch()
         
         self.static_actions = self.sim.action_tensor().to_torch()
-        # print(self.static_actions)
         self.static_observations = self.sim.observation_tensor().to_torch()
         self.static_rewards = self.sim.reward_tensor().to_torch()
         self.static_worldID = self.sim.world_id_tensor().to_torch().to(torch.long)
         self.static_agentID = self.sim.agent_id_tensor().to_torch().to(torch.long)
+        self.static_locationWorldID = self.sim.location_world_id_tensor().to_torch().to(torch.long)
+        self.static_locationID = self.sim.location_id_tensor().to_torch().to(torch.long)
         
         self.obs_size = full_obs_size
         self.state_size = full_obs_size
@@ -58,14 +59,15 @@ class OvercookedMadrona(VectorMultiAgentEnv):
         self.static_scattered_rewards = self.static_rewards.detach().clone()
 
         self.static_scattered_active_agents[self.static_agentID, self.static_worldID] = self.static_active_agents
-        self.static_scattered_observations[self.static_agentID, self.static_worldID, :] = self.static_observations
+        self.static_scattered_observations[self.static_locationID, self.static_locationWorldID, :] = self.static_observations
+
         self.static_scattered_rewards[self.static_agentID, self.static_worldID] = self.static_rewards
 
         if use_env_cpu:
             env_device = torch.device('cpu')
         else:
             env_device = torch.device('cuda', gpu_id) if torch.cuda.is_available() else torch.device('cpu')
-        super().__init__(num_envs, device=env_device, n_players=self.static_observations.shape[0])
+        super().__init__(num_envs, device=env_device, n_players=self.num_players)
 
         self.infos = [{}] * self.num_envs
         
@@ -84,31 +86,38 @@ class OvercookedMadrona(VectorMultiAgentEnv):
     def to_torch(self, a):
         return a.detach().clone().to(self.device)
 
+    def get_obs(self):
+        self.static_scattered_active_agents[self.static_agentID, self.static_worldID] = self.static_active_agents
+        self.static_scattered_observations[self.static_locationID, self.static_locationWorldID, :] = self.static_observations
+
+        obs0 = self.to_torch(self.static_scattered_observations).reshape((self.height, self.width, self.num_envs, -1)).transpose(0, 2)
+
+        obs = [VectorObservation(self.to_torch(self.static_scattered_active_agents[i].to(torch.bool)),
+                                 torch.cat([
+                                     obs0[:, :, :, i:i+1],
+                                     obs0[:, :, :, :i],
+                                     obs0[:, :, :, i+1:self.n_players],
+                                     obs0[:, :, :, self.n_players + 4 * i: self.n_players + 4 * (i+1)],
+                                     obs0[:, :, :, self.n_players:self.n_players + 4 * i],
+                                     obs0[:, :, :, self.n_players + 4 * (i+1):]
+                                 ], dim=3))
+               for i in range(self.n_players)]
+
+        return obs
+
     def n_step(self, actions):
         actions_device = self.static_agentID.get_device()
         actions = actions.to(actions_device if actions_device != -1 else torch.device('cpu'))
         self.static_actions.copy_(actions[self.static_agentID, self.static_worldID, :])
 
         self.sim.step()
-
-        self.static_scattered_active_agents[self.static_agentID, self.static_worldID] = self.static_active_agents
-        self.static_scattered_observations[self.static_agentID, self.static_worldID, :] = self.static_observations
+        
         self.static_scattered_rewards[self.static_agentID, self.static_worldID] = self.static_rewards
 
-        obs = [VectorObservation(self.to_torch(self.static_scattered_active_agents[i].to(torch.bool)),
-                                 self.to_torch(self.static_scattered_observations[i, :, :self.obs_size]).reshape((self.num_envs, self.height, self.width, -1)).transpose(1, 2))
-               for i in range(self.n_players)]
-
-        return obs, self.to_torch(self.static_scattered_rewards), self.to_torch(self.static_dones), self.infos
+        return self.get_obs(), self.to_torch(self.static_scattered_rewards), self.to_torch(self.static_dones), self.infos
 
     def n_reset(self):
-        self.static_scattered_active_agents[self.static_agentID, self.static_worldID] = self.static_active_agents
-        self.static_scattered_observations[self.static_agentID, self.static_worldID, :] = self.static_observations
-
-        obs = [VectorObservation(self.to_torch(self.static_scattered_active_agents[i].to(torch.bool)),
-                                 self.to_torch(self.static_scattered_observations[i, :, :self.obs_size]).reshape((self.num_envs, self.height, self.width, -1)).transpose(1, 2))
-               for i in range(self.n_players)]
-        return obs
+        return self.get_obs()
 
     def close(self, **kwargs):
         pass

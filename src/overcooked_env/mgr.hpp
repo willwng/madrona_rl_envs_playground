@@ -51,6 +51,8 @@ public:
 
     MADRONA_IMPORT madrona::py::Tensor worldIDTensor() const;
     MADRONA_IMPORT madrona::py::Tensor agentIDTensor() const;
+    MADRONA_IMPORT madrona::py::Tensor locationWorldIDTensor() const;
+    MADRONA_IMPORT madrona::py::Tensor locationIDTensor() const;
 
 
 private:

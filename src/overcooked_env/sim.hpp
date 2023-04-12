@@ -37,7 +37,7 @@ namespace Overcooked {
         int64_t soup_pickup_rew;
         uint8_t recipe_values[NUM_RECIPES];
         uint8_t recipe_times[NUM_RECIPES];
-        int64_t horizon;        
+        int64_t horizon;
     };
 
     struct Object {
@@ -100,9 +100,19 @@ namespace Overcooked {
         ActionT choice; // 6 discrete choices
     };
 
-    struct Observation {
-        int32_t x[MAX_SIZE * (5 * MAX_NUM_PLAYERS + 16)];
+    // struct Observation {
+    //     int32_t x[MAX_SIZE * (5 * MAX_NUM_PLAYERS + 16)];
+    // };
+
+    struct LocationObservation {
+        int32_t x[5 * MAX_NUM_PLAYERS + 16];
     };
+
+    struct LocationID {
+        int32_t id;
+    };
+
+    struct LocationType : public madrona::Archetype<LocationID, LocationObservation> {};
 
     struct PlayerState {
         uint8_t position, orientation;
@@ -151,7 +161,7 @@ namespace Overcooked {
         float rew;
     };
 
-    struct Agent : public madrona::Archetype<Action, Observation, PlayerState, AgentID, ActionMask, ActiveAgent, Reward> {};
+    struct Agent : public madrona::Archetype<Action, PlayerState, AgentID, ActionMask, ActiveAgent, Reward> {};
 
     struct Sim : public madrona::WorldBase {
         static void registerTypes(madrona::ECSRegistry &registry, const Config &cfg);
@@ -163,6 +173,7 @@ namespace Overcooked {
         EpisodeManager *episodeMgr;
         
         madrona::Entity *agents;
+        madrona::Entity *locations;
     };
 
     class Engine : public ::madrona::CustomContext<Engine, Sim> {

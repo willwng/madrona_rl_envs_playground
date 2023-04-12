@@ -92,6 +92,8 @@ NB_MODULE(madrona_overcooked_example_python, m) {
         .def("reward_tensor", &Manager::rewardTensor)
         .def("world_id_tensor", &Manager::worldIDTensor)
         .def("agent_id_tensor", &Manager::agentIDTensor)
+        .def("location_world_id_tensor", &Manager::locationWorldIDTensor)
+        .def("location_id_tensor", &Manager::locationIDTensor)
     ;
 }
 
