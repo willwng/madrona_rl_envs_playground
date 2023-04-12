@@ -243,7 +243,7 @@ MADRONA_EXPORT Tensor Manager::actionMaskTensor() const
     
 MADRONA_EXPORT Tensor Manager::rewardTensor() const
 {
-    return impl_->exportTensor(5, Tensor::ElementType::Float32,
+    return impl_->exportTensor(5, Tensor::ElementType::Int32,
         {impl_->cfg.num_players, impl_->cfg.numWorlds});
 }
 

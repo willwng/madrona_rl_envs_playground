@@ -27,9 +27,22 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
 
     registry.registerComponent<LocationObservation>();
     registry.registerComponent<LocationID>();
+    registry.registerComponent<LocationData>();
+
+    registry.registerComponent<PotInfo>();
 
     registry.registerFixedSizeArchetype<Agent>(cfg.num_players);
     registry.registerFixedSizeArchetype<LocationType>(cfg.width * cfg.height);
+
+
+    int num_pots = 0;
+    for (int x = 0; x < cfg.height * cfg.width; x++) {
+        if (cfg.terrain[x] == TerrainT::POT) {
+            num_pots++;
+        }
+    }
+    registry.registerFixedSizeArchetype<PotType>(num_pots);
+
 
     // Export tensors for pytorch
     registry.exportSingleton<WorldReset>(0);
@@ -44,10 +57,6 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.exportColumn<LocationType, WorldID>(8);
     registry.exportColumn<LocationType, LocationID>(9);
 }
-    inline TerrainT get_terrain(WorldState &ws, int32_t pos)
-    {
-        return ws.terrain[pos];
-    }
 
     inline int32_t get_time(WorldState &ws, Object &soup)
     {
@@ -64,7 +73,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
         return soup.cooking_tick >= 0 && soup.cooking_tick >= get_time(ws, soup);
     }
 
-    inline void observationSystem(Engine &ctx, LocationID&id, LocationObservation& obs)
+    inline void observationSystem(Engine &ctx, LocationID &id, LocationObservation &obs, LocationData &dat)
 {
     WorldState &ws = ctx.getSingleton<WorldState>();
 
@@ -121,23 +130,12 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
         obs.x[shift + 14] = 1;
     }
 
-    int other_i = 1;
-    for (int i = 0; i < ws.num_players; i++) {
+    if (dat.current_player != -1) {
+        int i = dat.current_player;
         PlayerState &ps = ctx.getUnsafe<PlayerState>(ctx.data().agents[i]);
 
-        int32_t pos2 = ps.position;
-        if (pos2 != pos) {
-            continue;
-        }
-        
-        if (i == 0) {
-            obs.x[0] = 1;
-            obs.x[ws.num_players + ps.orientation] = 1;
-        } else {
-            obs.x[other_i] = 1;
-            obs.x[ws.num_players + 4 * other_i + ps.orientation] = 1;
-            other_i++;
-        }
+        obs.x[i] = 1;
+        obs.x[ws.num_players + 4 * i + ps.orientation] = 1;
 
         if (ps.has_object()) {
             Object &obj2 = ps.get_object();
@@ -156,48 +154,6 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
         }
     }
 }
-
-    inline bool is_dish_pickup_useful(Engine &ctx, WorldState &ws, int32_t non_empty_pots)
-    {
-        if (ws.num_players != 2) {
-            return false;
-        }
-
-        int32_t num_player_dishes = 0;
-        for (int i = 0; i < ws.num_players; i++) {
-            PlayerState &ps = ctx.getUnsafe<PlayerState>(ctx.data().agents[i]);
-            if (ps.has_object() && ps.get_object().name == ObjectT::DISH) {
-                num_player_dishes++;
-            }
-        }
-
-        // OPTIMIZE: Iterate over COUNTER
-        for (int i = 0; i < ws.num_counters; i++) {
-            int pos = ws.counter_locs[i];
-            Object &obj = ws.objects[pos];
-            if (obj.name == ObjectT::DISH) {
-                return false;
-            }
-        }
-        return num_player_dishes < non_empty_pots;
-    }
-
-    inline int32_t get_pot_states(WorldState &ws)
-    {
-        int32_t non_empty_pots = 0;
-
-        // OPTIMIZE: Iterate over POT
-        for (int i = 0; i < ws.num_pots; i++) {
-            int pos = ws.pot_locs[i];
-            if (ws.objects[pos].name != ObjectT::NONE) {
-                Object &soup = ws.objects[pos];
-                if (soup.cooking_tick >= 0 || soup.num_ingredients() < MAX_NUM_INGREDIENTS) {
-                    non_empty_pots++;
-                }
-            } 
-        }
-        return non_empty_pots;
-    }
 
     inline int32_t deliver_soup(WorldState &ws, PlayerState &ps, Object &soup)
     {
@@ -229,17 +185,17 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
         }
         return point;
     }
-
+    
+    inline void pre_resolve_interacts(Engine &, WorldState &ws)
+    {
+        ws.calculated_reward.store_relaxed(0);
+    }
+    
     inline void resolve_interacts(Engine &ctx, WorldState &ws)
     {
-        int32_t pot_states = get_pot_states(ws);
-
         for (int i = 0; i < ws.num_players; i++) {
-            Reward &reward = ctx.getUnsafe<Reward>(ctx.data().agents[i]);
             PlayerState &player = ctx.getUnsafe<PlayerState>(ctx.data().agents[i]);
             Action &action = ctx.getUnsafe<Action>(ctx.data().agents[i]);
-
-            reward.rew = 0;
 
             if (action.choice != ActionT::INTERACT) {
                 continue;
@@ -252,6 +208,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
             TerrainT terrain_type = ws.terrain[i_pos];
 
             if (terrain_type == TerrainT::COUNTER) {
+                // TODO: parallel pick and place without conflicts
                 if (player.has_object() && ws.objects[i_pos].name == ObjectT::NONE) {
                     ws.objects[i_pos] = player.remove_object();
                 } else if (!player.has_object() && ws.objects[i_pos].name != ObjectT::NONE) {
@@ -268,22 +225,23 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
                 }
             } else if (terrain_type == TerrainT::DISH_SOURCE) {
                 if (player.held_object.name == ObjectT::NONE) {
-                    if (is_dish_pickup_useful(ctx, ws, pot_states)) {
-                        reward.rew += ws.dish_pickup_rew;
-                    }
                     player.held_object = { .name = ObjectT::DISH };
                 }
             } else if (terrain_type == TerrainT::POT) {
+                // TODO: parallel POT interactions without conflicts
                 if (!player.has_object()) {
+                    // order doesn't matter if soup_to_be_cooked_at_location
                     if (soup_to_be_cooked_at_location(ws, i_pos)) {
                         ws.objects[i_pos].cooking_tick = 0;
                     }
                 } else {
                     if (player.get_object().name == ObjectT::DISH && soup_ready_at_location(ws, i_pos)) {
+                        // order matters, only agent with lowest index can take soup
                         player.set_object(ws.objects[i_pos]);
                         ws.objects[i_pos] = { .name = ObjectT::NONE };
-                        reward.rew += ws.soup_pickup_rew;
+                        ws.calculated_reward.fetch_add_relaxed(ws.soup_pickup_rew);
                     } else if (player.get_object().name == ObjectT::ONION || player.get_object().name == ObjectT::TOMATO) {
+                        // order matters, only some agents can actually add to pot
                         if (ws.objects[i_pos].name == ObjectT::NONE) {
                             ws.objects[i_pos] = { .name = ObjectT::SOUP };
                         }
@@ -296,7 +254,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
                             } else {
                                 soup.num_tomatoes++;
                             }
-                            reward.rew += ws.placement_in_pot_rew;
+                            ws.calculated_reward.fetch_add_relaxed(ws.placement_in_pot_rew);
                         }
                     }
                 }
@@ -304,7 +262,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
                 if (player.has_object()) {
                     Object obj = player.get_object();
                     if (obj.name == ObjectT::SOUP) {
-                        reward.rew += deliver_soup(ws, player, obj);
+                        ws.calculated_reward.fetch_add_relaxed(deliver_soup(ws, player, obj));
                     }
                 }
             }
@@ -312,7 +270,10 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
         }
     }
 
-    inline void _move_if_direction(Engine &ctx, PlayerState &ps, Action &action)
+
+
+
+    inline void _move_if_direction(Engine &ctx, PlayerState &ps, Action &action, AgentID &id)
     {
         if (action.choice == ActionT::INTERACT) {
             ps.propose_pos_and_or(ps.position, ps.orientation);
@@ -324,62 +285,96 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
             int32_t new_orientation = (action.choice == ActionT::STAY ? ps.orientation : (int32_t) action.choice);
             ps.propose_pos_and_or((ws.terrain[new_pos] != TerrainT::AIR ? ps.position : new_pos), new_orientation);
         }
+
+        ctx.getUnsafe<LocationData>(ctx.data().locations[ps.proposed_position]).future_player.store_relaxed(id.id);
     }
 
-    inline void _handle_collisions(Engine &ctx, WorldState &ws)
+inline void _check_collisions(Engine &ctx, PlayerState &ps, AgentID &id)
     {
-        for (int idx0 = 0; idx0 < ws.num_players; idx0++) {
-            for (int idx1 = idx0+1; idx1 < ws.num_players; idx1++) {
-                PlayerState &ps0 = ctx.getUnsafe<PlayerState>(ctx.data().agents[idx0]);
-                PlayerState &ps1 = ctx.getUnsafe<PlayerState>(ctx.data().agents[idx1]);
+        WorldState &ws = ctx.getSingleton<WorldState>();
 
-                if (ps0.proposed_position == ps1.proposed_position ||
-                    (ps0.proposed_position == ps1.position && ps1.proposed_position == ps0.position)) {
-                    for (int i = 0; i < ws.num_players; i++) {
-                        ctx.getUnsafe<PlayerState>(ctx.data().agents[i]).update_or();
-                    }
-                    return;
-                }
-            }
-        }
+        LocationData &origloc = ctx.getUnsafe<LocationData>(ctx.data().locations[ps.position]);
+        LocationData &proploc = ctx.getUnsafe<LocationData>(ctx.data().locations[ps.proposed_position]);
 
-        for (int i = 0; i < ws.num_players; i++) {
-            ctx.getUnsafe<PlayerState>(ctx.data().agents[i]).update_pos_and_or();
-        }
-    }
-
-    inline void step_environment_effects(Engine &ctx, WorldState &ws)
-    {
-        ws.timestep += 1;
-
-        // OPTIMIZE: ONLY Iterate over POT
-        for (int i = 0; i < ws.num_pots; i++) {
-            int pos = ws.pot_locs[i];
-            Object &obj = ws.objects[pos];
-            if (obj.name == ObjectT::SOUP && is_cooking(ws, obj)) {
-                obj.cooking_tick++;
-            }
+        int comp_id = proploc.current_player;
+        
+        if (proploc.future_player.load_acquire() != id.id) {
+            ws.should_update_pos.store_relaxed(false);
+            return;
         }
         
-        // calculate reward here
-        ws.calculated_reward = 0;
-        for (int i = 0; i < ws.num_players; i++) {
-            ws.calculated_reward += ctx.getUnsafe<Reward>(ctx.data().agents[i]).rew;
+        if (comp_id != -1 && comp_id != id.id && origloc.future_player.load_acquire() == comp_id) {
+            ws.should_update_pos.store_relaxed(false);
         }
-    }    
-
-    static void resetWorld(Engine &ctx)
-{
-    WorldState &ws = ctx.getSingleton<WorldState>();
-    
-    ws.timestep = 0;
-    for (int i = 0; i < ws.size; i++) {
-        ws.objects[i] = { .name = ObjectT::NONE };
     }
 
-    for (int i = 0; i < ws.num_players; i++) {
-        PlayerState &p = ctx.getUnsafe<PlayerState>(ctx.data().agents[i]);
+    inline void _unset_loc_info(Engine &ctx, PlayerState &ps)
+    {
+        ctx.getUnsafe<LocationData>(ctx.data().locations[ps.position]).current_player = -1;
+        ctx.getUnsafe<LocationData>(ctx.data().locations[ps.proposed_position]).future_player.store_relaxed(-1);
+    }
+
+
+    inline void _handle_collisions(Engine &ctx, PlayerState &ps, AgentID &id)
+    {
+        if (ctx.getSingleton<WorldState>().should_update_pos.load_acquire()) {
+            ps.update_pos_and_or();
+            int new_pos = ps.position;
+            ctx.getUnsafe<LocationData>(ctx.data().locations[new_pos]).current_player = id.id;
+        } else {
+            ps.update_or();
+            int new_pos = ps.position;
+            ctx.getUnsafe<LocationData>(ctx.data().locations[new_pos]).current_player = id.id;
+        }
+    }
+
+
+    inline void step_environment_effects(Engine &, WorldState &ws)
+    {
+        ws.timestep += 1;
+    }
+
+    inline void step_pot_effects(Engine &ctx, PotInfo &pi)
+    {
+        WorldState &ws = ctx.getSingleton<WorldState>();
+        int pos = pi.id;
+        Object &obj = ws.objects[pos];
+        if (obj.name == ObjectT::SOUP && is_cooking(ws, obj)) {
+            obj.cooking_tick++;
+        }
+    }
+
+    inline void _reset_world_system(Engine &ctx, WorldState &ws)
+{
+    ws.should_update_pos.store_release(true);
+    if (ctx.getSingleton<WorldReset>().resetNow) {
+        ws.timestep = 0;
+    }
+}
+
+    inline void _reset_objects_system(Engine &ctx, LocationID &id)
+{
+    WorldState &ws = ctx.getSingleton<WorldState>();
+    if (ctx.getSingleton<WorldReset>().resetNow) {
+        ws.objects[id.id] = { .name = ObjectT::NONE };
+    }
+}
+
+    inline void _pre_reset_actors_system(Engine &ctx, PlayerState &p)
+{
+    if (ctx.getSingleton<WorldReset>().resetNow) {
+        ctx.getUnsafe<LocationData>(ctx.data().locations[p.position]).current_player = -1;
+    }
+}
+
+    inline void _reset_actors_system(Engine &ctx, PlayerState &p, AgentID &id)
+{
+    WorldState &ws = ctx.getSingleton<WorldState>();
+    int i = id.id;
+    ctx.getUnsafe<Reward>(ctx.data().agents[i]).rew = ws.calculated_reward.load_acquire();
+    if (ctx.getSingleton<WorldReset>().resetNow) {
         p.position = ws.start_player_y[i] * ws.width + ws.start_player_x[i];
+        ctx.getUnsafe<LocationData>(ctx.data().locations[p.position]).current_player = i;
         p.orientation = ActionT::NORTH;
         p.proposed_position = p.position;
         p.proposed_orientation = p.orientation;
@@ -391,33 +386,57 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     inline void check_reset_system(Engine &ctx, WorldState &ws)
     {
         ctx.getSingleton<WorldReset>().resetNow = (ws.timestep >= ws.horizon);
-        for (int i = 0; i < ws.num_players; i++) {
-            ctx.getUnsafe<Reward>(ctx.data().agents[i]).rew = ws.calculated_reward;
-        }
-
-        if (ctx.getSingleton<WorldReset>().resetNow) {
-            resetWorld(ctx);
-        }
     }
 
     
 
-void Sim::setupTasks(TaskGraph::Builder &builder, const Config &cfg)
+void Sim::setupTasks(TaskGraph::Builder &builder, const Config &)
 {
+    auto pre_interact_sys = builder.addToGraph<ParallelForNode<Engine, pre_resolve_interacts, WorldState>>({});
+    auto interact_sys = builder.addToGraph<ParallelForNode<Engine, resolve_interacts, WorldState>>({pre_interact_sys});
 
-    auto interact_sys = builder.addToGraph<ParallelForNode<Engine, resolve_interacts, WorldState>>({});
+    auto move_sys = builder.addToGraph<ParallelForNode<Engine, _move_if_direction, PlayerState, Action, AgentID>>({});
 
-    auto move_sys = builder.addToGraph<ParallelForNode<Engine, _move_if_direction, PlayerState, Action>>({});
+    // auto collision_sys = builder.addToGraph<ParallelForNode<Engine, _handle_collisions, WorldState>>({move_sys});
+    auto check_collision_sys = builder.addToGraph<ParallelForNode<Engine, _check_collisions, PlayerState, AgentID>>({move_sys});
+    auto unset_loc_info = builder.addToGraph<ParallelForNode<Engine, _unset_loc_info, PlayerState>>({check_collision_sys});
+    auto collision_sys = builder.addToGraph<ParallelForNode<Engine, _handle_collisions, PlayerState, AgentID>>({unset_loc_info});
 
-    auto collision_sys = builder.addToGraph<ParallelForNode<Engine, _handle_collisions, WorldState>>({move_sys});
-
-    auto env_step_sys = builder.addToGraph<ParallelForNode<Engine, step_environment_effects, WorldState>>({interact_sys, collision_sys});
     
-    auto terminate_sys = builder.addToGraph<ParallelForNode<Engine, check_reset_system, WorldState>>({env_step_sys});
+    auto time_step_sys = builder.addToGraph<ParallelForNode<Engine, step_environment_effects, WorldState>>({});
+    auto env_step_sys = builder.addToGraph<ParallelForNode<Engine, step_pot_effects, PotInfo>>({interact_sys, collision_sys});
+    
+    
+    auto terminate_sys = builder.addToGraph<ParallelForNode<Engine, check_reset_system, WorldState>>({time_step_sys, env_step_sys});
 
-    auto obs_sys = builder.addToGraph<ParallelForNode<Engine, observationSystem, LocationID, LocationObservation>>({terminate_sys});
+    auto reset_world_sys = builder.addToGraph<ParallelForNode<Engine, _reset_world_system, WorldState>>({terminate_sys});
+    auto reset_obj_sys = builder.addToGraph<ParallelForNode<Engine, _reset_objects_system, LocationID>>({terminate_sys});
+    auto pre_reset_actors_sys = builder.addToGraph<ParallelForNode<Engine, _pre_reset_actors_system, PlayerState>>({terminate_sys});
+    auto reset_actors_sys = builder.addToGraph<ParallelForNode<Engine, _reset_actors_system, PlayerState, AgentID>>({pre_reset_actors_sys});
+
+    auto obs_sys = builder.addToGraph<ParallelForNode<Engine, observationSystem, LocationID, LocationObservation, LocationData>>({reset_world_sys, reset_obj_sys, reset_actors_sys});
 
     (void)obs_sys;
+}
+
+    static void resetWorld(Engine &ctx)
+{
+    WorldState &ws = ctx.getSingleton<WorldState>();
+    
+    _reset_world_system(ctx, ws);
+    for (int i = 0; i < ws.size; i++) {
+        _reset_objects_system(ctx, ctx.getUnsafe<LocationID>(ctx.data().locations[i]));
+    }
+    
+    for (int i = 0; i < ws.num_players; i++) {
+        PlayerState &p = ctx.getUnsafe<PlayerState>(ctx.data().agents[i]);
+        _pre_reset_actors_system(ctx, p);
+    }
+    for (int i = 0; i < ws.num_players; i++) {
+        PlayerState &p = ctx.getUnsafe<PlayerState>(ctx.data().agents[i]);
+        AgentID &id = ctx.getUnsafe<AgentID>(ctx.data().agents[i]);
+        _reset_actors_system(ctx, p, id);
+    }
 }
 
 
@@ -455,6 +474,12 @@ Sim::Sim(Engine &ctx, const Config& cfg, const WorldInit &init)
         }
     }
     ws.num_players = cfg.num_players;
+
+    pots = (Entity *)rawAlloc(ws.num_pots * sizeof(Entity));
+    for (int i = 0; i < ws.num_pots; i++) {
+        pots[i] = ctx.makeEntityNow<PotType>();
+        ctx.getUnsafe<PotInfo>(pots[i]).id = ws.pot_locs[i];
+    }
     
     for (int p = 0; p < ws.num_players; p++) {
         ws.start_player_x[p] = cfg.start_player_x[p];
@@ -480,23 +505,29 @@ Sim::Sim(Engine &ctx, const Config& cfg, const WorldInit &init)
         ctx.getUnsafe<Reward>(agents[i]).rew = 0.f;
     }
     
-    // Initial reset
-    resetWorld(ctx);
-    ctx.getSingleton<WorldReset>().resetNow = false;
-    
-    // SETUP Base Observation
+    //  Base Observation
     for (int p = 0; p < cfg.height * cfg.width; p++) {
         locations[p] = ctx.makeEntityNow<LocationType>();
         ctx.getUnsafe<LocationID>(locations[p]).id = p;
+        ctx.getUnsafe<LocationData>(locations[p]).current_player = -1;
+        ctx.getUnsafe<LocationData>(locations[p]).future_player.store_release(-1);
         LocationObservation& obs = ctx.getUnsafe<LocationObservation>(locations[p]);
 
         TerrainT t = (TerrainT) cfg.terrain[p];
         if (t) {
             obs.x[t - 1 + 5 * cfg.num_players] = 1;
         }
+    }
 
-        observationSystem(ctx, ctx.getUnsafe<LocationID>(locations[p]), obs);
+    // Initial reset
+    ctx.getSingleton<WorldReset>().resetNow = true;    
+    resetWorld(ctx);
+    ctx.getSingleton<WorldReset>().resetNow = false;
 
+    for (int p = 0; p < cfg.height * cfg.width; p++) {
+        LocationObservation& obs = ctx.getUnsafe<LocationObservation>(locations[p]);
+        LocationData& dat = ctx.getUnsafe<LocationData>(locations[p]);
+        observationSystem(ctx, ctx.getUnsafe<LocationID>(locations[p]), obs, dat);
     }
 }
 

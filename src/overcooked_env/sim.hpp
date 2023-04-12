@@ -89,7 +89,9 @@ namespace Overcooked {
         uint8_t num_counters;
         uint8_t counter_locs[MAX_SIZE];
 
-        int64_t calculated_reward;
+        madrona::Atomic<int32_t> calculated_reward;
+
+        madrona::Atomic<bool> should_update_pos;
     };
 
     struct ActiveAgent {
@@ -104,6 +106,12 @@ namespace Overcooked {
     //     int32_t x[MAX_SIZE * (5 * MAX_NUM_PLAYERS + 16)];
     // };
 
+    struct PotInfo {
+        int32_t id;
+    };
+
+    struct PotType : public madrona::Archetype<PotInfo> {};
+
     struct LocationObservation {
         int32_t x[5 * MAX_NUM_PLAYERS + 16];
     };
@@ -112,7 +120,12 @@ namespace Overcooked {
         int32_t id;
     };
 
-    struct LocationType : public madrona::Archetype<LocationID, LocationObservation> {};
+    struct LocationData {
+        int32_t current_player;
+        madrona::Atomic<int32_t> future_player;
+    };
+
+    struct LocationType : public madrona::Archetype<LocationID, LocationObservation, LocationData> {};
 
     struct PlayerState {
         uint8_t position, orientation;
@@ -158,7 +171,7 @@ namespace Overcooked {
     };
 
     struct Reward {
-        float rew;
+        int32_t rew;
     };
 
     struct Agent : public madrona::Archetype<Action, PlayerState, AgentID, ActionMask, ActiveAgent, Reward> {};
@@ -174,6 +187,7 @@ namespace Overcooked {
         
         madrona::Entity *agents;
         madrona::Entity *locations;
+        madrona::Entity *pots;
     };
 
     class Engine : public ::madrona::CustomContext<Engine, Sim> {
