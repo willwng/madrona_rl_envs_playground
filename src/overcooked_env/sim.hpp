@@ -10,7 +10,7 @@
 #include "init.hpp"
 
 #define NUM_MOVES 6
-#define MAX_SIZE 256
+#define MAX_SIZE 10000
 #define MAX_NUM_PLAYERS 2
 #define MAX_NUM_INGREDIENTS 3
 
@@ -65,13 +65,13 @@ namespace Overcooked {
     };
 
     struct WorldState {
-        Object objects[MAX_SIZE];
+        // Object objects[MAX_SIZE];
         int32_t timestep;
         uint8_t size;
 
         uint8_t num_players;
         
-        TerrainT terrain[MAX_SIZE];
+        // TerrainT terrain[MAX_SIZE];
         uint8_t height;
         uint8_t width;
         uint8_t start_player_x[MAX_NUM_PLAYERS];
@@ -82,12 +82,6 @@ namespace Overcooked {
         uint8_t recipe_values[NUM_RECIPES];
         uint8_t recipe_times[NUM_RECIPES];
         int64_t horizon;
-
-        uint8_t num_pots;
-        uint8_t pot_locs[MAX_SIZE];
-        
-        uint8_t num_counters;
-        uint8_t counter_locs[MAX_SIZE];
 
         madrona::Atomic<int32_t> calculated_reward;
 
@@ -121,8 +115,14 @@ namespace Overcooked {
     };
 
     struct LocationData {
+        TerrainT terrain;
+        Object object;
+        
         int32_t current_player;
         madrona::Atomic<int32_t> future_player;
+
+        int32_t interacting_players[4]; // SET
+        madrona::Atomic<int32_t> num_interacting_players; //SET
     };
 
     struct LocationType : public madrona::Archetype<LocationID, LocationObservation, LocationData> {};
@@ -131,6 +131,8 @@ namespace Overcooked {
         uint8_t position, orientation;
         uint8_t proposed_position, proposed_orientation;
         Object held_object;
+
+        int8_t interaction_index; // SET
 
         bool has_object() { return held_object.name != ObjectT::NONE; }
         Object& get_object() { return held_object; }

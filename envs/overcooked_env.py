@@ -416,7 +416,7 @@ def validate_step(states, actions, dones, nextstates, rewards, verbose=True):
                 print("numpy:", truenext[np.abs(truenext - nextstates[:, i]).nonzero()])
                 # print("madrona transition:", nextstates[:, i])
                 # print("numpy transition:", truenext)
-                print("TRANSITIONS are not equal")
+                print("TRANSITIONS are not equal", i)
             retval = False
 
     return retval

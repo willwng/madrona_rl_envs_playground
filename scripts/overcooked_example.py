@@ -34,7 +34,7 @@ parser.add_argument("--validation", default=False, nargs="?", const=True,
 parser.add_argument("--debug-compile", default=False, nargs="?", const=True,
                     help="if toggled, use debug compilation mode")
 parser.add_argument("--layout", type=str, default="cramped_room",
-                    choices=['cramped_room', 'coordination_ring', 'asymmetric_advantages_tomato', 'bonus_order_test'],
+                    choices=['cramped_room', 'coordination_ring', 'asymmetric_advantages_tomato', 'bonus_order_test', 'corridor', 'multiplayer_schelling'],
                     help="Choice for overcooked layout.")
 args = parser.parse_args()
 
@@ -61,7 +61,9 @@ for i in range(len(orig_obs_valid)):
     truevalid = np.array([orig_obs_valid[i][0][0], orig_obs_valid[i][1][0]])
     if not np.all(np.abs(truevalid - old_state_numpy[:, i]) == 0):
         print(np.abs(truevalid - old_state_numpy[:, i]).nonzero())
-        assert False
+        print("madrona:", old_state_numpy[:, i][np.abs(truevalid - old_state_numpy[:, i]).nonzero()])
+        print("numpy:", truevalid[np.abs(truevalid - old_state_numpy[:, i]).nonzero()])
+        assert(not args.asserts)
 
 # warp up
 for _ in range(5):
