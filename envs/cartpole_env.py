@@ -18,13 +18,12 @@ import gym
 from gym.utils import seeding
 
 def to_np(a):
-    return a[:,0].cpu().numpy()
+    return a.cpu().numpy()
 
-def to_torch(a):
-    return a[:,0].detach().clone()
 
 X_THRESHOLD = 2.4
 THETA_THRESHOLD_RADIANS = 12 * 2 * pi / 360
+
 
 class CartpoleMadronaNumpy(VectorEnv):
 
@@ -56,21 +55,12 @@ class CartpoleMadronaNumpy(VectorEnv):
         self.static_observations = self.sim.observation_tensor().to_torch()
         self.static_rewards = self.sim.reward_tensor().to_torch()
 
-        self.static_worldID = self.sim.world_id_tensor().to_torch().to(torch.long)[:, 0, :]
-
-        self.static_gathers = self.static_dones.detach().clone()
-
         self.infos = [{}] * self.num_envs
 
-        
-
     def step(self, actions):
-        actions = actions[:, np.newaxis, np.newaxis]
         self.static_actions.copy_(torch.from_numpy(actions))
 
         self.sim.step()
-
-        torch.gather(self.static_dones, 0, self.static_worldID, out=self.static_gathers)
 
         return to_np(self.static_observations), to_np(self.static_rewards), to_np(self.static_gathers), [{}] * self.num_envs
 
@@ -114,25 +104,17 @@ class CartpoleMadronaTorch(VectorEnv):
         self.static_observations = self.sim.observation_tensor().to_torch()
         self.static_rewards = self.sim.reward_tensor().to_torch()
 
-        self.static_worldID = self.sim.world_id_tensor().to_torch().to(torch.long)[:, 0, :]
-        # print(self.sim.world_id_tensor().to_torch())
-
-        self.static_gathers = self.static_dones.detach().clone()
-
         self.infos = [{}] * self.num_envs
 
     def to_torch(self, a):
-        return a[:,0].detach().clone().to(self.device)
+        return a.to(self.device)
 
     def step(self, actions):
-        self.static_actions.copy_(actions[:, None, None])
+        self.static_actions.copy_(actions)
         
         self.sim.step()
 
-        # print(self.static_worldID)
-        torch.gather(self.static_dones, 0, self.static_worldID, out=self.static_gathers)
-
-        return self.to_torch(self.static_observations), self.to_torch(self.static_rewards), self.to_torch(self.static_gathers), self.infos
+        return self.to_torch(self.static_observations), self.to_torch(self.static_rewards), self.to_torch(self.static_dones), self.infos
 
     def reset(self):
         return self.to_torch(self.static_observations)
@@ -260,7 +242,7 @@ def validate_step(states, actions, dones, nextstates, verbose=True):
     numenvs = dones.size(0)
 
     states = states.cpu().numpy()
-    actions = actions.cpu().numpy()
+    actions = actions[:, 0].cpu().numpy()
     dones = dones.cpu().numpy()
     nextstates = nextstates.cpu().numpy()
 

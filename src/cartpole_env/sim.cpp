@@ -16,18 +16,20 @@ using namespace madrona::math;
 #define TAU 0.02
 #define X_THRESHOLD 2.4
 
-#define M_PI 3.141592653589793238463
-#define THETA_THRESHOLD_RADIANS (12 * 2 * M_PI / 360)
+#define MA_PI 3.141592653589793238463
+
+#define THETA_THRESHOLD_RADIANS (12 * 2 * MA_PI / 360)
 
 namespace Cartpole {
 
     
-    void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
+    void Sim::registerTypes(ECSRegistry &registry, const Config &)
 {
     base::registerTypes(registry);
 
-    registry.registerSingleton<WorldReset>();
-    
+    // registry.registerSingleton<WorldReset>();
+
+    registry.registerComponent<WorldReset>();
     registry.registerComponent<Action>();
     registry.registerComponent<State>();
     registry.registerComponent<Reward>();
@@ -35,7 +37,8 @@ namespace Cartpole {
     registry.registerFixedSizeArchetype<Agent>(1);
 
     // Export tensors for pytorch
-    registry.exportSingleton<WorldReset>(0);
+    // registry.exportSingleton<WorldReset>(0);
+    registry.exportColumn<Agent, WorldReset>(0);
     registry.exportColumn<Agent, Action>(1);
     registry.exportColumn<Agent, State>(2);
     registry.exportColumn<Agent, Reward>(3);
@@ -63,17 +66,7 @@ static void resetWorld(Engine &ctx)
     };
 }
 
-inline void resetSystem(Engine &ctx, WorldReset &reset)
-{
-    // if (!reset.resetNow) {
-    //     return;
-    // }
-    reset.resetNow = false;
-
-    // resetWorld(ctx);
-}
-
-    inline void actionSystem(Engine &ctx, Action &action, State &state, Reward &reward)
+    inline void actionSystem(Engine &, Action &action, State &state, Reward &reward)
 {
     float force = (action.choice == 1 ? FORCE_MAG : -FORCE_MAG);
     float costheta = cosf(state.theta);
@@ -88,23 +81,13 @@ inline void resetSystem(Engine &ctx, WorldReset &reset)
     state.theta = state.theta + TAU * state.theta_dot;
     state.theta_dot = state.theta_dot + TAU * thetaacc;
 
-    // reset.resetNow = state.x < -X_THRESHOLD || state.x > X_THRESHOLD || state.theta < -THETA_THRESHOLD_RADIANS || state.theta > THETA_THRESHOLD_RADIANS;
-
     reward.rew = 1.f; // just need to stay alive
-    
-    // // Update agent's position
-    // pos += action.positionDelta;
-
-    // // Clear action for next step
-    // action.positionDelta = Vector3 {0, 0, 0};
 }
 
-    inline void checkDone(Engine &ctx, WorldReset &reset)
+    inline void checkDone(Engine &ctx, WorldReset &reset, State &state)
 {
-    Entity agent = ctx.data().agents[0];
-
-    float x = ctx.getUnsafe<State>(agent).x;
-    float theta = ctx.getUnsafe<State>(agent).theta;
+    float x = state.x;
+    float theta = state.theta;
 
     reset.resetNow = x < -X_THRESHOLD || x > X_THRESHOLD || theta < -THETA_THRESHOLD_RADIANS || theta > THETA_THRESHOLD_RADIANS;
 
@@ -129,7 +112,7 @@ inline void resetSystem(Engine &ctx, WorldReset &reset)
     auto action_sys = builder.addToGraph<ParallelForNode<Engine, actionSystem,
                                                      Action, State, Reward>>({});
 
-    auto terminate_sys = builder.addToGraph<ParallelForNode<Engine, checkDone, WorldReset>>({action_sys});
+    auto terminate_sys = builder.addToGraph<ParallelForNode<Engine, checkDone, WorldReset, State>>({action_sys});
 
     (void)terminate_sys;
     // (void) action_sys;
@@ -138,7 +121,7 @@ inline void resetSystem(Engine &ctx, WorldReset &reset)
 }
 
 
-    Sim::Sim(Engine &ctx, const Config& cfg, const WorldInit &init)
+    Sim::Sim(Engine &ctx, const Config&, const WorldInit &init)
     : WorldBase(ctx),
       episodeMgr(init.episodeMgr)
 {
@@ -157,7 +140,8 @@ inline void resetSystem(Engine &ctx, WorldReset &reset)
     
     // Initial reset
     resetWorld(ctx);
-    ctx.getSingleton<WorldReset>().resetNow = false;
+    // ctx.getSingleton<WorldReset>().resetNow = false;
+    ctx.getUnsafe<WorldReset>(agents[0]).resetNow = false;
 }
 
     MADRONA_BUILD_MWGPU_ENTRY(Engine, Sim, Config, WorldInit);

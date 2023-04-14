@@ -38,7 +38,7 @@ namespace Cartpole {
         float rew;
     };
 
-    struct Agent : public madrona::Archetype<Action, State, Reward> {};
+    struct Agent : public madrona::Archetype<WorldReset, Action, State, Reward> {};
 
     struct Config {};
 

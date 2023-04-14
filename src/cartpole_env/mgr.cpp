@@ -192,25 +192,25 @@ MADRONA_EXPORT Tensor Manager::resetTensor() const
 MADRONA_EXPORT Tensor Manager::actionTensor() const
 {
     return impl_->exportTensor(1, Tensor::ElementType::Int32,
-                               {impl_->cfg.numWorlds, 1, 1});
+                               {impl_->cfg.numWorlds, 1});
 }
 
 MADRONA_EXPORT Tensor Manager::stateTensor() const
 {
     return impl_->exportTensor(2, Tensor::ElementType::Float32,
-                               {impl_->cfg.numWorlds, 1, 4});
+                               {impl_->cfg.numWorlds, 4});
 }
 
 MADRONA_EXPORT Tensor Manager::rewardTensor() const
 {
     return impl_->exportTensor(3, Tensor::ElementType::Float32,
-                               {impl_->cfg.numWorlds, 1, 1});
+                               {impl_->cfg.numWorlds, 1});
 }
 
 MADRONA_EXPORT Tensor Manager::worldIDTensor() const
 {
     return impl_->exportTensor(4, Tensor::ElementType::Int32,
-                               {impl_->cfg.numWorlds, 1, 1});
+                               {impl_->cfg.numWorlds, 1});
 }
 
 }
