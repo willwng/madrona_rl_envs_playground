@@ -24,8 +24,9 @@ namespace Overcooked {
         registry.registerComponent<ActiveAgent>();
         registry.registerComponent<Reward>();
 
-        registry.registerComponent<LocationObservation>();
-        registry.registerComponent<LocationID>();
+        registry.registerComponent<LocationXObservation>();
+        registry.registerComponent<LocationXID>();
+        
         registry.registerComponent<LocationData>();
 
         registry.registerComponent<PotInfo>();
@@ -38,6 +39,7 @@ namespace Overcooked {
         }
         registry.registerFixedSizeArchetype<Agent>(cfg.num_players);
         registry.registerFixedSizeArchetype<LocationType>(cfg.width * cfg.height);
+        registry.registerFixedSizeArchetype<LocationXPlayer>(cfg.width * cfg.height * cfg.num_players);
         registry.registerFixedSizeArchetype<PotType>(num_pots);
 
         // Export tensors for pytorch
@@ -49,9 +51,9 @@ namespace Overcooked {
         registry.exportColumn<Agent, WorldID>(6);
         registry.exportColumn<Agent, AgentID>(7);
 
-        registry.exportColumn<LocationType, LocationObservation>(3);
-        registry.exportColumn<LocationType, WorldID>(8);
-        registry.exportColumn<LocationType, LocationID>(9);
+        registry.exportColumn<LocationXPlayer, LocationXObservation>(3);
+        registry.exportColumn<LocationXPlayer, WorldID>(8);
+        registry.exportColumn<LocationXPlayer, LocationXID>(9);
     }
 
     inline int32_t get_time(WorldState &ws, Object &soup)
@@ -69,12 +71,16 @@ namespace Overcooked {
         return soup.cooking_tick >= 0 && soup.cooking_tick >= get_time(ws, soup);
     }
 
-    inline void observationSystem(Engine &ctx, LocationObservation &obs, LocationData &dat)
+    // TODO: FIX
+    inline void observationSystem(Engine &ctx, LocationXObservation &obs, LocationXID &id)
     {
         WorldState &ws = ctx.getSingleton<WorldState>();
 
+        int32_t loc = id.id % (ws.size);
+        int32_t current_player = id.id / (ws.size);
+        
         int32_t shift = 5 * ws.num_players;
-
+        LocationData &dat = ctx.getUnsafe<LocationData>(ctx.data().locations[loc]);
         Object &obj = dat.object;
 
         if (ws.horizon - ws.timestep < 40) {
@@ -120,9 +126,31 @@ namespace Overcooked {
             obs.x[shift + 14] = 1;
         }
 
+        if (dat.past_player != -1) {
+            int32_t relative_player;
+            if (dat.past_player == current_player) {
+                relative_player = 0;
+            } else if (dat.past_player < current_player) {
+                relative_player = dat.past_player + 1;
+            } else {
+                relative_player = dat.past_player;
+            }
+
+            obs.x[relative_player] = 0;
+            obs.x[ws.num_players + 4 * relative_player + dat.past_orientation] = 0;
+        }
+
         if (dat.current_player != -1) {
-            int i = dat.current_player;
-            PlayerState &ps = ctx.getUnsafe<PlayerState>(ctx.data().agents[i]);
+            int other_player = dat.current_player;
+            int i;
+            if (other_player == current_player) {
+                i = 0;
+            } else if (other_player < current_player) {
+                i = other_player + 1;
+            } else {
+                i = other_player;
+            }
+            PlayerState &ps = ctx.getUnsafe<PlayerState>(ctx.data().agents[other_player]);
 
             obs.x[i] = 1;
             obs.x[ws.num_players + 4 * i + ps.orientation] = 1;
@@ -378,15 +406,18 @@ namespace Overcooked {
     // MODIFIES: current_player and future_player of LocationData
     inline void _unset_loc_info(Engine &ctx, PlayerState &ps, AgentID &id)
     {
-        WorldState &ws = ctx.getSingleton<WorldState>();
+        // WorldState &ws = ctx.getSingleton<WorldState>();
         
         ctx.getUnsafe<LocationData>(ctx.data().locations[ps.position]).current_player = -1;
         ctx.getUnsafe<LocationData>(ctx.data().locations[ps.proposed_position]).future_player.store_relaxed(-1);
 
+        // TODO: Fix in OBSERVATION
         // update relevant portions of obs
-        LocationObservation &obs = ctx.getUnsafe<LocationObservation>(ctx.data().locations[ps.position]);
-        obs.x[id.id] = 0;
-        obs.x[ws.num_players + 4 * id.id + ps.orientation] = 0;
+        // LocationObservation &obs = ctx.getUnsafe<LocationObservation>(ctx.data().locations[ps.position]);
+        // obs.x[id.id] = 0;
+        // obs.x[ws.num_players + 4 * id.id + ps.orientation] = 0;
+        ctx.getUnsafe<LocationData>(ctx.data().locations[ps.position]).past_player = id.id;
+        ctx.getUnsafe<LocationData>(ctx.data().locations[ps.position]).past_orientation = ps.orientation;
     }
 
     // REQUIRES: proposed_position, unmodified position, reset current_player of new Location
@@ -465,6 +496,11 @@ namespace Overcooked {
         ctx.getSingleton<WorldReset>().resetNow = (ws.timestep >= ws.horizon);
     }
 
+    inline void postObservationSystem(Engine &, LocationData &dat)
+    {
+        dat.past_player = -1;
+        dat.past_orientation = -1;
+    }
     
 
     void Sim::setupTasks(TaskGraph::Builder &builder, const Config &)
@@ -501,9 +537,11 @@ namespace Overcooked {
         auto reset_actors_sys = builder.addToGraph<ParallelForNode<Engine, _reset_actors_system, PlayerState, AgentID>>({pre_reset_actors_sys});
 
         // Get most up-to-date observations
-        auto obs_sys = builder.addToGraph<ParallelForNode<Engine, observationSystem, LocationObservation, LocationData>>({reset_world_sys, reset_obj_sys, reset_actors_sys});
+        auto obs_sys = builder.addToGraph<ParallelForNode<Engine, observationSystem, LocationXObservation, LocationXID>>({reset_world_sys, reset_obj_sys, reset_actors_sys});
 
-        (void)obs_sys;
+        auto post_obs_sys = builder.addToGraph<ParallelForNode<Engine, postObservationSystem, LocationData>>({obs_sys});
+
+        (void)post_obs_sys;
     }
 
     static void resetWorld(Engine &ctx)
@@ -530,9 +568,9 @@ namespace Overcooked {
         // Make a buffer that will last the duration of simulation for storing
         // agent entity IDs
         agents = (Entity *)rawAlloc(cfg.num_players * sizeof(Entity));
-
         locations = (Entity *)rawAlloc(cfg.width * cfg.height * sizeof(Entity));
-
+        locationXplayers = (Entity *)rawAlloc(cfg.num_players * cfg.width * cfg.height * sizeof(Entity));
+        
         WorldState &ws = ctx.getSingleton<WorldState>();
 
         for (int r = 0; r < NUM_RECIPES; r++) {
@@ -593,19 +631,26 @@ namespace Overcooked {
         //  Base Observation
         for (int p = 0; p < cfg.height * cfg.width; p++) {
             locations[p] = ctx.makeEntityNow<LocationType>();
-            ctx.getUnsafe<LocationID>(locations[p]).id = p;
             ctx.getUnsafe<LocationData>(locations[p]).terrain = cfg.terrain[p];
+            ctx.getUnsafe<LocationData>(locations[p]).past_player = -1;
+            ctx.getUnsafe<LocationData>(locations[p]).past_orientation = -1;
             ctx.getUnsafe<LocationData>(locations[p]).current_player = -1;
             ctx.getUnsafe<LocationData>(locations[p]).future_player.store_relaxed(-1);
-            LocationObservation& obs = ctx.getUnsafe<LocationObservation>(locations[p]);
 
-            for (int i = 0; i < 5 * cfg.num_players + 16; i++) {
-                obs.x[i] = 0;
-            }
+            for (int i = 0; i < cfg.num_players; i++){
+                int lxp_id = p + i * cfg.height * cfg.width;
+                locationXplayers[lxp_id] = ctx.makeEntityNow<LocationXPlayer>();
+                ctx.getUnsafe<LocationXID>(locationXplayers[lxp_id]).id = lxp_id;
+                LocationXObservation& obs = ctx.getUnsafe<LocationXObservation>(locationXplayers[lxp_id]);
+                
+                for (int j = 0; j < 5 * cfg.num_players + 16; j++) {
+                    obs.x[j] = 0;
+                }
 
-            TerrainT t = cfg.terrain[p];
-            if (t) {
-                obs.x[t - 1 + 5 * cfg.num_players] = 1;
+                TerrainT t = cfg.terrain[p];
+                if (t) {
+                    obs.x[t - 1 + 5 * cfg.num_players] = 1;
+                }
             }
         }
         // Initial reset
@@ -613,10 +658,10 @@ namespace Overcooked {
         resetWorld(ctx);
         ctx.getSingleton<WorldReset>().resetNow = false;
 
-        for (int p = 0; p < cfg.height * cfg.width; p++) {
-            LocationObservation& obs = ctx.getUnsafe<LocationObservation>(locations[p]);
-            LocationData& dat = ctx.getUnsafe<LocationData>(locations[p]);
-            observationSystem(ctx, obs, dat);
+        for (int p = 0; p < cfg.height * cfg.width * cfg.num_players; p++) {
+            LocationXObservation& obs = ctx.getUnsafe<LocationXObservation>(locationXplayers[p]);
+            LocationXID& id = ctx.getUnsafe<LocationXID>(locationXplayers[p]);
+            observationSystem(ctx, obs, id);
         }
 
     }

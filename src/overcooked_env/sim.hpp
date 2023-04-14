@@ -11,7 +11,7 @@
 
 #define NUM_MOVES 6
 #define MAX_SIZE 10000
-#define MAX_NUM_PLAYERS 2
+#define MAX_NUM_PLAYERS 64
 #define MAX_NUM_INGREDIENTS 3
 
 #define NUM_RECIPES ((MAX_NUM_INGREDIENTS + 1) * (MAX_NUM_INGREDIENTS + 1))
@@ -106,18 +106,20 @@ namespace Overcooked {
 
     struct PotType : public madrona::Archetype<PotInfo> {};
 
-    struct LocationObservation {
-        int32_t x[5 * MAX_NUM_PLAYERS + 16];
+    struct LocationXObservation {
+        uint8_t x[5 * MAX_NUM_PLAYERS + 16];
     };
 
-    struct LocationID {
+    struct LocationXID {
         int32_t id;
     };
 
     struct LocationData {
         TerrainT terrain;
         Object object;
-        
+
+        int32_t past_player;
+        int32_t past_orientation;
         int32_t current_player;
         madrona::Atomic<int32_t> future_player;
 
@@ -125,8 +127,9 @@ namespace Overcooked {
         madrona::Atomic<int32_t> num_interacting_players; //SET
     };
 
-    struct LocationType : public madrona::Archetype<LocationID, LocationObservation, LocationData> {};
-
+    struct LocationType : public madrona::Archetype<LocationData> {};
+    struct LocationXPlayer: public madrona::Archetype<LocationXID, LocationXObservation> {};
+    
     struct PlayerState {
         uint8_t position, orientation;
         uint8_t proposed_position, proposed_orientation;
@@ -189,6 +192,7 @@ namespace Overcooked {
         
         madrona::Entity *agents;
         madrona::Entity *locations;
+        madrona::Entity *locationXplayers;
         madrona::Entity *pots;
     };
 

@@ -231,8 +231,8 @@ MADRONA_EXPORT Tensor Manager::actionTensor() const
     // TODO
 MADRONA_EXPORT Tensor Manager::observationTensor() const
 {
-    return impl_->exportTensor(3, Tensor::ElementType::Int32,
-        {impl_->cfg.width * impl_->cfg.height, impl_->cfg.numWorlds, (5 * MAX_NUM_PLAYERS + 16)});
+    return impl_->exportTensor(3, Tensor::ElementType::Int8,
+                               {impl_->cfg.num_players * impl_->cfg.width * impl_->cfg.height, impl_->cfg.numWorlds, sizeof(LocationXObservation)});
 }
 
 MADRONA_EXPORT Tensor Manager::actionMaskTensor() const
@@ -262,13 +262,13 @@ MADRONA_EXPORT Tensor Manager::agentIDTensor() const
 MADRONA_EXPORT Tensor Manager::locationWorldIDTensor() const
 {
     return impl_->exportTensor(8, Tensor::ElementType::Int32,
-        {impl_->cfg.width * impl_->cfg.height, impl_->cfg.numWorlds});
+        {impl_->cfg.num_players * impl_->cfg.width * impl_->cfg.height, impl_->cfg.numWorlds});
 }
 
 MADRONA_EXPORT Tensor Manager::locationIDTensor() const
 {
     return impl_->exportTensor(9, Tensor::ElementType::Int32,
-        {impl_->cfg.width * impl_->cfg.height, impl_->cfg.numWorlds});
+        {impl_->cfg.num_players * impl_->cfg.width * impl_->cfg.height, impl_->cfg.numWorlds});
 }
 
 }

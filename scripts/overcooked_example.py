@@ -53,25 +53,27 @@ old_state = env.n_reset()
 actions = torch.zeros((2, args.num_envs, 1), dtype=int).to(device=env.device)
 num_errors = 0
 
-orig_obs_valid = init_validation(args.layout, args.num_envs)
+if args.validation:
+    orig_obs_valid = init_validation(args.layout, args.num_envs)
 
-old_state_numpy = np.array([x.obs.cpu().numpy() for x in old_state])
+    old_state_numpy = np.array([x.obs.cpu().numpy() for x in old_state])
 
-for i in range(len(orig_obs_valid)):
-    truevalid = np.array([orig_obs_valid[i][0][0], orig_obs_valid[i][1][0]])
-    if not np.all(np.abs(truevalid - old_state_numpy[:, i]) == 0):
-        print(np.abs(truevalid - old_state_numpy[:, i]).nonzero())
-        print("madrona:", old_state_numpy[:, i][np.abs(truevalid - old_state_numpy[:, i]).nonzero()])
-        print("numpy:", truevalid[np.abs(truevalid - old_state_numpy[:, i]).nonzero()])
-        assert(not args.asserts)
+    for i in range(len(orig_obs_valid)):
+        truevalid = np.array([orig_obs_valid[i][0][0], orig_obs_valid[i][1][0]])
+        if not np.all(np.abs(truevalid - old_state_numpy[:, i]) == 0):
+            print(np.abs(truevalid - old_state_numpy[:, i]).nonzero())
+            print("madrona:", old_state_numpy[:, i][np.abs(truevalid - old_state_numpy[:, i]).nonzero()])
+            print("numpy:", truevalid[np.abs(truevalid - old_state_numpy[:, i]).nonzero()])
+            assert(not args.asserts)
 
 # warp up
-for _ in range(5):
+for i in range(5):
     actions[:, :, :] = torch.randint_like(actions, high=env.action_space.n)
     next_state, reward, next_done, _ = env.n_step(actions)
 
     if args.validation and not validate_step(old_state, actions, next_done, next_state, reward, verbose=args.verbose):
         num_errors += 1
+        print("ASERTION FAILED", i)
         assert(not args.asserts)
 
     old_state = next_state

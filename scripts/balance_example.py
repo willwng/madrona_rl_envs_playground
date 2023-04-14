@@ -1,6 +1,7 @@
 from envs.balance_beam_env import BalanceMadronaTorch, PantheonLine, validate_step
 
 from pantheonrl_extension.vectorenv import SyncVectorEnv
+from pantheonrl_extension.vectorobservation import VectorObservation
 
 import torch
 import time
@@ -51,7 +52,7 @@ for _ in range(5):
         logits[torch.logical_not(old_state[i].action_mask)] = -float('inf')
         actions[i, :, 0] = torch.max(logits, dim=1).indices  # torch.randint_like(actions, high=4)
     next_state, reward, next_done, _ = env.n_step(actions)
-    old_state = next_state
+    old_state = [VectorObservation(s.active.clone(), s.obs.clone(), s.state.clone(), s.action_mask.clone()) for s in next_state]
 
 time_stamps = [0 for i in range(args.num_steps * 2)]
 for iter in tqdm(range(args.num_steps), desc="Running Simulation"):
@@ -69,7 +70,7 @@ for iter in tqdm(range(args.num_steps), desc="Running Simulation"):
         num_errors += 1
         assert(not args.asserts)
 
-    old_state = next_state
+    old_state = [VectorObservation(s.active.clone(), s.obs.clone(), s.state.clone(), s.action_mask.clone()) for s in next_state]
     
 time_difference = [time_stamps[i] - time_stamps[i-1] for i in range(1, len(time_stamps), 2)]
 assert(len(time_difference) == args.num_steps)

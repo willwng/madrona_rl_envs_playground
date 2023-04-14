@@ -298,7 +298,7 @@ class MadronaEnv(VectorMultiAgentEnv):
         self.infos = [{}] * self.num_envs
 
     def to_torch(self, a):
-        return a.detach().clone().to(self.device)
+        return a.to(self.device) #.detach().clone().to(self.device)
 
     def n_step(self, actions):
         actions_device = self.static_agentID.get_device()
