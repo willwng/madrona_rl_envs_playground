@@ -6,7 +6,7 @@ from pantheonrl_extension.multiagentenv import MultiAgentEnv
 from pantheonrl_extension.vectorenv import VectorMultiAgentEnv
 from pantheonrl_extension.vectorobservation import VectorObservation
 
-from overcooked_ai_py.utils import read_layout_dict
+from overcooked_ai_py.utils import read_layout_dict, load_dict_from_file
 
 from overcooked_ai_py.mdp.actions import Action
 from overcooked_ai_py.mdp.overcooked_mdp import OvercookedGridworld
@@ -18,9 +18,9 @@ import build.madrona_overcooked_example_python as overcooked_python
 
 class OvercookedMadrona(VectorMultiAgentEnv):
 
-    def __init__(self, layout_name, num_envs, gpu_id, debug_compile=True, use_cpu=False, use_env_cpu=False, ego_agent_idx=0, horizon=400):
+    def __init__(self, layout_name, num_envs, gpu_id, debug_compile=True, use_cpu=False, use_env_cpu=False, ego_agent_idx=0, horizon=400, num_players=None):
         self.layout_name = layout_name
-        self.base_layout_params = base_layout_params(layout_name, horizon)
+        self.base_layout_params = get_base_layout_params(layout_name, horizon, max_num_players=num_players)
         self.width = self.base_layout_params['width']
         self.height = self.base_layout_params['height']
         self.num_players = self.base_layout_params['num_players']
@@ -141,6 +141,10 @@ TOMATO_SOURCE = 'T'
 DISH_SOURCE = 'D'
 SERVING = 'S'
 TERRAIN_TYPES = [AIR, POT, COUNTER, ONION_SOURCE, TOMATO_SOURCE, DISH_SOURCE, SERVING]
+PLAYER_NUMS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
+               "!", "@", "#", "$", "%", "^", "&", "*", "(", ")",
+               "a", "b", "c", "d", "e", "f", "g", "h", "i", "j",
+               "k", "l", "m", "n", "o", "p", "q", "r", "s", "t"]
 
 
 def get_true_orders(orders):
@@ -155,19 +159,24 @@ def get_true_orders(orders):
     return ans
 
 
-def base_layout_params(layout_name, horizon):
-    base_layout_params = read_layout_dict(layout_name)
+def get_base_layout_params(layout_name: str, horizon, max_num_players=None):
+    if layout_name.endswith(".layout"):
+        base_layout_params = load_dict_from_file(layout_name)
+    else:
+        base_layout_params = read_layout_dict(layout_name)
     grid = base_layout_params['grid']
     del base_layout_params['grid']
     grid = [layout_row.strip() for layout_row in grid.split('\n')]
     layout_grid = [[c for c in row] for row in grid]
 
-    player_positions = [None] * 9
+    player_positions = [None] * 64
     for y, row in enumerate(layout_grid):
         for x, c in enumerate(row):
-            if c in ["1", "2", "3", "4", "5", "6", "7", "8", "9"]:
+            if c in PLAYER_NUMS:
                 layout_grid[y][x] = " "
-                player_positions[int(c) - 1] = (x, y)
+                idx = PLAYER_NUMS.index(c)
+                if max_num_players is None or idx < max_num_players:
+                    player_positions[idx] = (x, y)
     num_players = len([x for x in player_positions if x is not None])
     player_positions = player_positions[:num_players]
 
@@ -264,9 +273,9 @@ def base_layout_params(layout_name, horizon):
 
 
 class SimplifiedOvercooked(MultiAgentEnv):
-    def __init__(self, layout_name, ego_agent_idx=0, horizon=400):
+    def __init__(self, layout_name, ego_agent_idx=0, horizon=400, num_players=None):
         self.layout_name = layout_name
-        self.base_layout_params = base_layout_params(layout_name, horizon)
+        self.base_layout_params = get_base_layout_params(layout_name, horizon, max_num_players=num_players)
         self.width = self.base_layout_params['width']
         self.height = self.base_layout_params['height']
         self.size = self.width * self.height
@@ -274,7 +283,7 @@ class SimplifiedOvercooked(MultiAgentEnv):
         self.mdp = DummyMDP(**self.base_layout_params)
         self.horizon = horizon
 
-        super().__init__(ego_ind=ego_agent_idx, n_players=2)
+        super().__init__(ego_ind=ego_agent_idx, n_players=self.base_layout_params['num_players'])
 
         self.featurize_fn = lambda x: self.mdp.lossless_state_encoding(x)
 
@@ -359,10 +368,10 @@ class PantheonOvercooked(MultiAgentEnv):
         return (0, 1), self.get_obs(self.base_env.state)
 
 
-def init_validation(layout_name, num_envs):
+def init_validation(layout_name, num_envs, num_players):
     global VALIDATION_ENVS
     VALIDATION_ENVS = [
-        SimplifiedOvercooked(layout_name) for _ in range(num_envs)
+        SimplifiedOvercooked(layout_name, num_players=num_players) for _ in range(num_envs)
     ]
     return [x.n_reset()[1] for x in VALIDATION_ENVS]
 

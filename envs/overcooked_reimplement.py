@@ -1,6 +1,5 @@
 import numpy as np
 
-MAX_SIZE = 256
 
 MAX_NUM_INGREDIENTS = 3
 NONE = 0
@@ -164,7 +163,7 @@ class DummyMDP:
 
     def setup_base_observation(self):
         shift = 5 * self.num_players
-        self.base_observation = np.zeros([MAX_SIZE, shift + 16])
+        self.base_observation = np.zeros([self.size, shift + 16])
         for pos in range(self.size):
             v = self.get_terrain(pos)
             if v > AIR:
@@ -366,7 +365,7 @@ class DummyMDP:
     def get_standard_start_state(self):
         return OvercookedState(
             [PlayerState(pos[1] * self.width + pos[0], 0) for pos in self.start_player_positions],
-            [NONE for _ in range(MAX_SIZE)]
+            [NONE for _ in range(self.size)]
         )
 
     def _move_if_direction(self, p, action):

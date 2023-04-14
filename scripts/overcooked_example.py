@@ -1,4 +1,4 @@
-from envs.overcooked_env import PantheonOvercooked, validate_step, init_validation, SimplifiedOvercooked, base_layout_params, OvercookedMadrona
+from envs.overcooked_env import PantheonOvercooked, validate_step, init_validation, SimplifiedOvercooked, get_base_layout_params, OvercookedMadrona
 
 from pantheonrl_extension.vectorenv import SyncVectorEnv
 
@@ -34,19 +34,22 @@ parser.add_argument("--validation", default=False, nargs="?", const=True,
 parser.add_argument("--debug-compile", default=False, nargs="?", const=True,
                     help="if toggled, use debug compilation mode")
 parser.add_argument("--layout", type=str, default="cramped_room",
-                    choices=['cramped_room', 'coordination_ring', 'asymmetric_advantages_tomato', 'bonus_order_test', 'corridor', 'multiplayer_schelling'],
+                    # choices=['cramped_room', 'coordination_ring', 'asymmetric_advantages_tomato', 'bonus_order_test', 'corridor', 'multiplayer_schelling'],
                     help="Choice for overcooked layout.")
+
+parser.add_argument("--num-players", type=int, default=None,
+                    help="the number of players in the game")
 args = parser.parse_args()
 
-print(base_layout_params(args.layout, 400))
+print(get_base_layout_params(args.layout, 400, max_num_players=args.num_players))
 
 if args.use_baseline:
     env = SyncVectorEnv(
-            [lambda: SimplifiedOvercooked(args.layout) for _ in range(args.num_envs)],
+            [lambda: SimplifiedOvercooked(args.layout, num_players=args.num_players) for _ in range(args.num_envs)],
             device = torch.device('cpu') if args.use_env_cpu else None
         )
 else:
-    env = OvercookedMadrona(args.layout, args.num_envs, 0, args.debug_compile, args.use_cpu, args.use_env_cpu)
+    env = OvercookedMadrona(args.layout, args.num_envs, 0, args.debug_compile, args.use_cpu, args.use_env_cpu, num_players=args.num_players)
     pass
 
 old_state = env.n_reset()
@@ -54,7 +57,7 @@ actions = torch.zeros((env.n_players, args.num_envs, 1), dtype=int).to(device=en
 num_errors = 0
 
 if args.validation:
-    orig_obs_valid = init_validation(args.layout, args.num_envs)
+    orig_obs_valid = init_validation(args.layout, args.num_envs, args.num_players)
 
     old_state_numpy = np.array([x.obs.cpu().numpy() for x in old_state])
 

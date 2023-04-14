@@ -1,4 +1,4 @@
-from envs.overcooked_env import PantheonOvercooked, validate_step, init_validation, SimplifiedOvercooked, base_layout_params, OvercookedMadrona
+from envs.overcooked_env import PantheonOvercooked, validate_step, init_validation, SimplifiedOvercooked, get_base_layout_params, OvercookedMadrona
 
 from pantheonrl_extension.vectorenv import SyncVectorEnv
 
@@ -25,13 +25,16 @@ parser.add_argument("--use-env-cpu", type=lambda x: bool(strtobool(x)), default=
 parser.add_argument("--debug-compile", default=False, nargs="?", const=True,
                     help="if toggled, use debug compilation mode")
 parser.add_argument("--layout", type=str, default="cramped_room",
-                    choices=['cramped_room', 'coordination_ring', 'asymmetric_advantages_tomato', 'bonus_order_test', 'corridor', 'multiplayer_schelling'],
+                    # choices=['cramped_room', 'coordination_ring', 'asymmetric_advantages_tomato', 'bonus_order_test', 'corridor', 'multiplayer_schelling'],
                     help="Choice for overcooked layout.")
+
+parser.add_argument("--num-players", type=int, default=None,
+                    help="the number of players in the game")
 args = parser.parse_args()
 
-print(base_layout_params(args.layout, 400))
+print(get_base_layout_params(args.layout, 400))
 
-env = OvercookedMadrona(args.layout, args.num_envs, 0, args.debug_compile, args.use_cpu, args.use_env_cpu)
+env = OvercookedMadrona(args.layout, args.num_envs, 0, args.debug_compile, args.use_cpu, args.use_env_cpu, num_players=args.num_players)
 
 # old_state = env.n_reset()
 actions = torch.zeros((env.n_players, args.num_envs, 1), dtype=int).to(device=env.device)
