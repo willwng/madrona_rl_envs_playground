@@ -50,7 +50,7 @@ else:
     pass
 
 old_state = env.n_reset()
-actions = torch.zeros((2, args.num_envs, 1), dtype=int).to(device=env.device)
+actions = torch.zeros((env.n_players, args.num_envs, 1), dtype=int).to(device=env.device)
 num_errors = 0
 
 if args.validation:
@@ -59,7 +59,7 @@ if args.validation:
     old_state_numpy = np.array([x.obs.cpu().numpy() for x in old_state])
 
     for i in range(len(orig_obs_valid)):
-        truevalid = np.array([orig_obs_valid[i][0][0], orig_obs_valid[i][1][0]])
+        truevalid = np.array([orig[0] for orig in orig_obs_valid[i]])
         if not np.all(np.abs(truevalid - old_state_numpy[:, i]) == 0):
             print(np.abs(truevalid - old_state_numpy[:, i]).nonzero())
             print("madrona:", old_state_numpy[:, i][np.abs(truevalid - old_state_numpy[:, i]).nonzero()])

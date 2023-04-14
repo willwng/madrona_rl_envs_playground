@@ -292,10 +292,10 @@ class SimplifiedOvercooked(MultiAgentEnv):
         return np.array([1] * Action.NUM_ACTIONS, dtype=bool)
 
     def get_obs(self, state):
-        ob0, ob1 = self.featurize_fn(state)
-        ob0 = ob0[:self.size, :].reshape((self.height, self.width, -1)).transpose((1, 0, 2))
-        ob1 = ob1[:self.size, :].reshape((self.height, self.width, -1)).transpose((1, 0, 2))
-        return (ob0, ob0, self.get_mask()), (ob1, ob1, self.get_mask())
+        obs = self.featurize_fn(state)
+        obs = [ob0[:self.size, :].reshape((self.height, self.width, -1)).transpose((1, 0, 2)) for ob0 in obs]
+        # ob1 = ob1[:self.size, :].reshape((self.height, self.width, -1)).transpose((1, 0, 2))
+        return [(ob0, ob0, self.get_mask()) for ob0 in obs]
 
     def n_step(self, actions):
         actions = [act.item() for act in actions]
@@ -309,11 +309,11 @@ class SimplifiedOvercooked(MultiAgentEnv):
         reward = sum(mdp_infos)
         info = {}
 
-        return (0, 1), self.get_obs(next_state), (reward, reward), done, info
+        return tuple(range(self.mdp.num_players)), self.get_obs(next_state), [reward] * self.mdp.num_players, done, info
 
     def n_reset(self):
         self.state = self.mdp.get_standard_start_state()
-        return (0, 1), self.get_obs(self.state)
+        return tuple(range(self.mdp.num_players)), self.get_obs(self.state)
 
 
 class PantheonOvercooked(MultiAgentEnv):
@@ -362,7 +362,7 @@ class PantheonOvercooked(MultiAgentEnv):
 def init_validation(layout_name, num_envs):
     global VALIDATION_ENVS
     VALIDATION_ENVS = [
-        PantheonOvercooked(layout_name) for _ in range(num_envs)
+        SimplifiedOvercooked(layout_name) for _ in range(num_envs)
     ]
     return [x.n_reset()[1] for x in VALIDATION_ENVS]
 
@@ -378,9 +378,9 @@ def validate_step(states, actions, dones, nextstates, rewards, verbose=True):
         # assume current state is fine: fix todo?
 
         _, truenext, truerewards, truedone, _ = VALIDATION_ENVS[i].n_step(actions[:, i])
-        truenext = np.array([truenext[0][0], truenext[1][0]])
+        truenext = np.array([tn[0] for tn in truenext])
         # print(truenext.shape)
-        truerewards = np.array([truerewards[0], truerewards[1]], dtype=np.float32)
+        # truerewards = np.array(, dtype=np.float32)
         if not np.all(truerewards == rewards[:, i].cpu().numpy()):
             if verbose:
                 # print("start state:", states[:, i], i)
@@ -402,7 +402,7 @@ def validate_step(states, actions, dones, nextstates, rewards, verbose=True):
             # pass
         if dones[i]:
             _, truenext = VALIDATION_ENVS[i].n_reset()
-            truenext = np.array([truenext[0][0], truenext[1][0]])
+            truenext = np.array([tn[0] for tn in truenext])
 
         if not np.all(np.abs(truenext - nextstates[:,i]) == 0):
             if verbose:

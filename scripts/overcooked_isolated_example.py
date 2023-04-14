@@ -34,7 +34,7 @@ print(base_layout_params(args.layout, 400))
 env = OvercookedMadrona(args.layout, args.num_envs, 0, args.debug_compile, args.use_cpu, args.use_env_cpu)
 
 # old_state = env.n_reset()
-actions = torch.zeros((2, args.num_envs, 1), dtype=int).to(device=env.device)
+actions = torch.zeros((env.n_players, args.num_envs, 1), dtype=int).to(device=env.device)
 num_errors = 0
 
 # warp up
