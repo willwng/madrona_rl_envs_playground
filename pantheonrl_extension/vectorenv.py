@@ -251,6 +251,9 @@ class VectorMultiAgentEnv(ABC):
                 each agent
         """
 
+    def close(self, **kwargs):
+        pass
+
 
 def to_torch(a):
     return a.detach().clone()

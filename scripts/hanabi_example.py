@@ -82,3 +82,4 @@ if __name__ == "__main__":
     print("step * worlds / sec:", args.num_envs / (sum(time_difference) / args.num_steps))
     if args.validation:
         print("Error rate:", num_errors/args.num_steps)
+    env.close()

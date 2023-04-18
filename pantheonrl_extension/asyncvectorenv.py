@@ -18,6 +18,7 @@ class AsyncVectorEnv(VectorMultiAgentEnv):
         if device is None:
             device = torch.device('cuda', 0) if torch.cuda.is_available() else torch.device('cpu')
 
+        mp.set_start_method('spawn')
         ctx = mp.get_context(context)
 
         dummy_env = env_fns[0]()
@@ -58,7 +59,7 @@ class AsyncVectorEnv(VectorMultiAgentEnv):
 
     def n_step(self, actions):
         for idx, pipe in enumerate(self.parent_pipes):
-            pipe.send(("step", (self.agents_tuples[idx], actions[:, idx])))
+            pipe.send(("step", (self.agents_tuples[idx], actions[:, idx].cpu().numpy())))
 
         results, successes = zip(*[pipe.recv() for pipe in self.parent_pipes])
         agents, obs, rews, dones, infos = zip(*results)
@@ -169,8 +170,9 @@ def _worker(index, env_fn, pipe, parent_pipe, error_queue):
                     "be one of {`reset`, `step`, `seed`, `close`, `_call`, "
                     "`_setattr`, `_check_spaces`}."
                 )
-    except (KeyboardInterrupt, Exception):
-        # print("EXCEPTION", e)
+    except (KeyboardInterrupt, Exception) as e:
+        print("EXCEPTION", e)
+        print(index, "BROKEN")
         error_queue.put((index,) + sys.exc_info()[:2])
         pipe.send((None, False))
     finally:

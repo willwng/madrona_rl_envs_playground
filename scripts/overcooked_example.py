@@ -2,7 +2,7 @@ from envs.overcooked_env import validate_step, init_validation, SimplifiedOverco
 
 from pantheonrl_extension.asyncvectorenv import AsyncVectorEnv
 from pantheonrl_extension.vectorobservation import VectorObservation
-
+from pantheonrl_extension.vectorenv import SyncVectorEnv
 
 import torch
 import time
@@ -103,3 +103,4 @@ if __name__ == "__main__":
     print("step * worlds / sec:", args.num_envs / (sum(time_difference) / args.num_steps))
     if args.validation:
         print("Error rate:", num_errors/args.num_steps)
+    env.close()
