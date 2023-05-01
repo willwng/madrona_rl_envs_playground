@@ -4,3 +4,6 @@
 [submodule "overcooked_ai"]
 	path = overcooked_ai
 	url = https://github.com/HumanCompatibleAI/overcooked_ai
+[submodule "PantheonRL"]
+	path = PantheonRL
+	url = https://github.com/Stanford-ILIAD/PantheonRL

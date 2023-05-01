@@ -34,13 +34,13 @@ def parse_args():
         help="if toggled, madrona will be enabled by default")
 
     # Algorithm specific arguments
-    parser.add_argument("--total-timesteps", type=int, default=500000,
+    parser.add_argument("--total-timesteps", type=int, default=5000000,
         help="total timesteps of the experiments")
-    parser.add_argument("--num-envs", type=int, default=4,
+    parser.add_argument("--num-envs", type=int, default=120,
         help="the number of parallel game environments")
     parser.add_argument("--learning-rate", type=float, default=2.5e-4,
         help="the learning rate of the optimizer")
-    parser.add_argument("--num-steps", type=int, default=128,
+    parser.add_argument("--num-steps", type=int, default=60,
         help="the number of steps to run in each environment per policy rollout")
     parser.add_argument("--anneal-lr", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
         help="Toggle learning rate annealing for policy and value networks")
@@ -104,7 +104,7 @@ num_updates = args.total_timesteps // int(args.num_envs * args.num_steps)
 ego = CleanPPOAgent(
     envs = env,
     name = run_name + "_ego",
-    device = torch.device("cuda", 0),
+    device = torch.device("cpu"),
     num_updates = num_updates,
     verbose = True,
     lr = args.learning_rate,
@@ -126,7 +126,7 @@ ego = CleanPPOAgent(
 partner = CleanPPOAgent(
     envs = env,
     name = run_name + "_alt",
-    device = torch.device("cuda", 0),
+    device = torch.device("cpu"),
     num_updates = num_updates,
     verbose = True,
     lr = args.learning_rate,

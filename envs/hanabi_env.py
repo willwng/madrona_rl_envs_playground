@@ -476,7 +476,7 @@ class HanabiState():
         return True
 
     
-def validate_step(states, actions, dones, nextstates, rewards, config, verbose=True):    
+def validate_step(states, actions, dones, nextstates, rewards, config, verbose=True):
     numenvs = dones.size(0)
 
     colors = config['colors']
