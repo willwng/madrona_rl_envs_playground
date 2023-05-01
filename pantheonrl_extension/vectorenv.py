@@ -251,6 +251,9 @@ class VectorMultiAgentEnv(ABC):
                 each agent
         """
 
+    def close(self, **kwargs):
+        pass
+
 
 def to_torch(a):
     return a.detach().clone()
@@ -368,7 +371,7 @@ class SyncVectorEnv(VectorMultiAgentEnv):
             self.agents_tuples[i] = agentsi
             if i == 0:
                 self.static_rewards = torch.zeros((self.n_players, self.num_envs), device=self.device)
-                self.static_dones = torch.zeros((self.num_envs), device=self.device)
+                self.static_dones = torch.zeros((self.num_envs), device=self.device, dtype=torch.bool)
             infos.append(infosi)
             self.static_dones[i] = donesi
             for agent in range(self.n_players):

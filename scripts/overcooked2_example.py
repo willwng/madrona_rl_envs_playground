@@ -1,4 +1,4 @@
-from envs.overcooked_env import validate_step, init_validation, SimplifiedOvercooked, get_base_layout_params, OvercookedMadrona
+from envs.overcooked2_env import validate_step, init_validation, SimplifiedOvercooked, get_base_layout_params, OvercookedMadrona
 
 from pantheonrl_extension.asyncvectorenv import AsyncVectorEnv
 from pantheonrl_extension.vectorobservation import VectorObservation
@@ -37,7 +37,7 @@ if __name__ == "__main__":
                         help="if toggled, validate correctness")
     parser.add_argument("--debug-compile", default=False, nargs="?", const=True,
                         help="if toggled, use debug compilation mode")
-    parser.add_argument("--layout", type=str, default="cramped_room",
+    parser.add_argument("--layout", type=str, default="simple",
                         # choices=['cramped_room', 'coordination_ring', 'asymmetric_advantages_tomato', 'bonus_order_test', 'corridor', 'multiplayer_schelling'],
                         help="Choice for overcooked layout.")
 
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     print(get_base_layout_params(args.layout, 400, max_num_players=args.num_players))
 
     if args.use_baseline:
-        env = AsyncVectorEnv(
+        env = SyncVectorEnv(
                 [lambda: SimplifiedOvercooked(args.layout, num_players=args.num_players) for _ in range(args.num_envs)],
                 device = torch.device('cpu') if args.use_env_cpu else None
             )
@@ -67,8 +67,11 @@ if __name__ == "__main__":
             truevalid = np.array([orig[0] for orig in orig_obs_valid[i]])
             if not np.all(np.abs(truevalid - old_state_numpy[:, i]) == 0):
                 print(np.abs(truevalid - old_state_numpy[:, i]).nonzero())
-                print("madrona:", old_state_numpy[:, i][np.abs(truevalid - old_state_numpy[:, i]).nonzero()])
-                print("numpy:", truevalid[np.abs(truevalid - old_state_numpy[:, i]).nonzero()])
+                # print("madrona:", old_state_numpy[:, i][np.abs(truevalid - old_state_numpy[:, i]).nonzero()])
+                # print("numpy:", truevalid[np.abs(truevalid - old_state_numpy[:, i]).nonzero()])
+                print(truevalid)
+                print(old_state_numpy[:, i])
+                print(i, truevalid.shape)
                 assert(not args.asserts)
 
     # warp up

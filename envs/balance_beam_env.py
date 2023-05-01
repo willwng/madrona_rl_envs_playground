@@ -104,8 +104,6 @@ class PantheonLine(MultiAgentEnv):
 
         self.state_ind = -1
 
-        self.rng = np.random.default_rng(seed=0)
-
         # self.n_reset()
 
     def update_states(self):
@@ -143,7 +141,7 @@ class PantheonLine(MultiAgentEnv):
     def n_reset(self):
         # print("reset")
         self.state_ind = (self.state_ind + 1) % MAX_STATES
-        self.state = self.rng.integers(0, NUM_SPACES, 2)
+        self.state = np.random.randint(0, NUM_SPACES, 2)  # generate_state(self.state_ind)
         self.ego_state = np.zeros(TIME)
         self.alt_state = np.zeros(TIME)
         self.current_time = TIME - 1

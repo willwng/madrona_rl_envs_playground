@@ -22,8 +22,7 @@ miniconda3/bin/conda init bash
 ```
 conda create -n madrona python=3.10
 conda activate madrona
-pip install torch
-pip install numpy
+pip install torch numpy tensorboard
 
 git clone https://github.com/bsarkar321/madrona_rl_envs
 cd madrona_rl_envs
@@ -31,14 +30,18 @@ git submodule update --init --recursive
 mkdir build
 cd build
 cmake ..
-make -j 4
+make -j
 cd ..
 
 pip install -e .
 
-cd overcooked_ai
-pip install -e .
-cd ..
+pip install -e overcooked_ai
+```
+
+NOTE: For cmake, you make need to specify the cuda tookit directory as follows:
+
+```
+cmake -D CUDAToolkit_ROOT=/usr/local/cuda-12.0 ..
 ```
 
 ## Running scripts

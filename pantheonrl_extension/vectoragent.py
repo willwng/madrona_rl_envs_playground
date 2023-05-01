@@ -207,6 +207,7 @@ class CleanPPOAgent(VectorAgent):
         if torch.any(dones):
             if self.verbose:
                 # self.writer.add_scalar("charts/episodic_return", torch.mean(self.running_rewards[dones]), self.global_step)
+                # print(torch.mean(self.running_rewards[dones]))
                 self.writer.add_scalar("charts/min_episodic_return", torch.min(self.running_rewards[dones]), self.global_step)
                 self.writer.add_scalar("charts/max_episodic_return", torch.max(self.running_rewards[dones]), self.global_step)
             self.mean_return_sum += torch.mean(self.running_rewards[dones])
