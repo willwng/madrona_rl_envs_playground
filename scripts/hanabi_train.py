@@ -13,8 +13,9 @@ from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter
 
 from envs.hanabi_env import HanabiMadrona, PantheonHanabi, config_choice
-from pantheonrl_extension.vectoragent import RandomVectorAgent, CleanPPOAgent
+# from pantheonrl_extension.vectoragent import RandomVectorAgent, CleanPPOAgent
 from pantheonrl_extension.vectorenv import SyncVectorEnv
+from pantheonrl_extension.centralized_vectoragent import MainCPPOAgent, PartnerCPPOAgent
 
 from tqdm import tqdm
 
@@ -39,15 +40,15 @@ def parse_args():
     # Algorithm specific arguments
     parser.add_argument("--num-updates", type=int, default=1000,
         help="total number of updates of the experiments")
-    parser.add_argument("--num-envs", type=int, default=1, # change back
+    parser.add_argument("--num-envs", type=int, default=1000, # change back
         help="the number of parallel game environments")
-    parser.add_argument("--learning-rate", type=float, default=2.5e-4,
+    parser.add_argument("--learning-rate", type=float, default=6.25e-5,
         help="the learning rate of the optimizer")
     parser.add_argument("--num-steps", type=int, default=128,
         help="the number of steps to run in each environment per policy rollout")
     parser.add_argument("--anneal-lr", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
         help="Toggle learning rate annealing for policy and value networks")
-    parser.add_argument("--gamma", type=float, default=0.99,
+    parser.add_argument("--gamma", type=float, default=0.999,
         help="the discount factor gamma")
     parser.add_argument("--gae-lambda", type=float, default=0.95,
         help="the lambda for the general advantage estimation")
@@ -57,7 +58,7 @@ def parse_args():
         help="the K epochs to update the policy")
     parser.add_argument("--norm-adv", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
         help="Toggles advantages normalization")
-    parser.add_argument("--clip-coef", type=float, default=0.2,
+    parser.add_argument("--clip-coef", type=float, default=0.05,
         help="the surrogate clipping coefficient")
     parser.add_argument("--clip-vloss", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
         help="Toggles whether or not to use a clipped loss for the value function, as per the paper.")
@@ -110,7 +111,7 @@ assert args.cuda
 
 num_updates = args.num_updates #  args.total_timesteps // int(args.num_envs * args.num_steps)
 
-ego = CleanPPOAgent(
+partner = MainCPPOAgent(
     envs = env,
     name = run_name + "_ego",
     device = torch.device("cuda", 0),
@@ -132,26 +133,9 @@ ego = CleanPPOAgent(
     target_kl = args.target_kl
 )
 
-partner = CleanPPOAgent(
-    envs = env,
-    name = run_name + "_alt",
-    device = torch.device("cuda", 0),
-    num_updates = num_updates,
-    verbose = True,
-    lr = args.learning_rate,
-    num_steps = args.num_steps,
-    anneal_lr = args.anneal_lr,
-    gamma = args.gamma,
-    gae_lambda = args.gae_lambda,
-    num_minibatches = args.num_minibatches,
-    update_epochs = args.update_epochs,
-    norm_adv = args.norm_adv,
-    clip_coef = args.clip_coef,
-    clip_vloss = args.clip_vloss,
-    ent_coef = args.ent_coef,
-    vf_coef = args.vf_coef,
-    max_grad_norm = args.max_grad_norm,
-    target_kl = args.target_kl
+ego = PartnerCPPOAgent(
+    partner,
+    0
 )
 
 # partner = RandomVectorAgent(lambda: torch.randint_like(env.static_actions[0], high=4))
