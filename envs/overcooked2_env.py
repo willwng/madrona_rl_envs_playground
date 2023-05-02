@@ -130,7 +130,7 @@ MAX_NUM_INGREDIENTS = 3
 
 BASE_REW_SHAPING_PARAMS = {
     "PLACEMENT_IN_POT_REW": 3,
-    "DISH_PICKUP_REWARD": 0,
+    "DISH_PICKUP_REWARD": 3,
     "SOUP_PICKUP_REWARD": 5,
 }
 
@@ -287,7 +287,7 @@ def get_base_layout_params(layout_name: str, horizon, max_num_players=None):
 
 
 class SimplifiedOvercooked(MultiAgentEnv):
-    def __init__(self, layout_name, ego_agent_idx=0, horizon=400, num_players=None):
+    def __init__(self, layout_name, ego_agent_idx=0, horizon=200, num_players=None):
         self.layout_name = layout_name
         self.base_layout_params = get_base_layout_params(layout_name, horizon, max_num_players=num_players)
         self.width = self.base_layout_params['width']
@@ -341,7 +341,7 @@ class SimplifiedOvercooked(MultiAgentEnv):
 
 class PantheonOvercooked(MultiAgentEnv):
 
-    def __init__(self, layout_name, ego_agent_idx=0, horizon=400):
+    def __init__(self, layout_name, ego_agent_idx=0, horizon=200):
         self.layout_name = layout_name
 
         self.mdp = OvercookedGridworld.from_layout_name(self.layout_name, rew_shaping_params=BASE_REW_SHAPING_PARAMS)

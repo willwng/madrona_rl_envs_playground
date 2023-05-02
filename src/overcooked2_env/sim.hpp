@@ -86,6 +86,8 @@ namespace Simplecooked {
         madrona::Atomic<int32_t> calculated_reward;
 
         madrona::Atomic<bool> should_update_pos;
+
+        uint8_t num_pots;
     };
 
     struct ActiveAgent {
