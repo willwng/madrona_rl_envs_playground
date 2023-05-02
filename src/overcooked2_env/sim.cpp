@@ -214,104 +214,68 @@ namespace Simplecooked {
         return point;
     }
 
-    // REQUIRES: nothing
-    // MODIFIES: WorldState.calculated_reward
-    inline void pre_resolve_interacts(Engine &, WorldState &ws)
+    // // REQUIRES: nothing
+    // // MODIFIES: WorldState.calculated_reward
+    // inline void pre_resolve_interacts(Engine &ctx, WorldState &ws)
+    // {
+    //     ws.calculated_reward.store_relaxed(0);
+    // }
+
+    inline int get_pot_states(Engine &ctx, WorldState &ws)
     {
-        ws.calculated_reward.store_relaxed(0);
+        int non_empty_pots = 0;
+        for (int p = 0; p < ws.num_pots; p++) {
+            int id = ctx.getUnsafe<PotInfo>(ctx.data().pots[p]).id;
+            LocationData &dat = ctx.getUnsafe<LocationData>(ctx.data().locations[id]);
+            if (dat.object.name != ObjectT::NONE && (dat.object.cooking_tick >= 0 || dat.object.num_ingredients() < MAX_NUM_INGREDIENTS)) {
+                non_empty_pots++;
+            }
+        }
+        return non_empty_pots;
     }
 
-    // REQUIRES: reset WorldState.calculated_reward, LocationData.num_interacting_players, original player.position, orientation, held_object
-    // MODIFIES: LocationData.num_interacting_players, LocationData.interacting_players, player.held_object, ws.calculated_reward
-    inline void resolve_interacts(Engine &ctx, PlayerState &player, AgentID &id, Action &action)
+    inline bool is_dish_pickup_useful(Engine &ctx, WorldState &ws, int non_empty_pots)
     {
-        int i = id.id;
-
-        player.interaction_index = -1;
-
-        if (action.choice != ActionT::INTERACT) {
-            return;
-        }
-
-        WorldState &ws = ctx.getSingleton<WorldState>();
-
-        int32_t pos = player.position;
-        int32_t o = player.orientation;
-
-        int32_t i_pos = move_in_direction(pos, o, ws.width);
-
-        LocationData &dat = ctx.getUnsafe<LocationData>(ctx.data().locations[i_pos]);
-
-        TerrainT terrain_type = dat.terrain;
-
-        if (terrain_type == TerrainT::COUNTER) {
-            int player_loc_idx = dat.num_interacting_players.fetch_add_relaxed(1);
-            dat.interacting_players[player_loc_idx] = i;
-        } else if (terrain_type == TerrainT::ONION_SOURCE) {
-            if (player.held_object.name == ObjectT::NONE) {
-                player.held_object = { .name = ObjectT::ONION };
-            }
-        } else if (terrain_type == TerrainT::TOMATO_SOURCE) {
-            if (player.held_object.name == ObjectT::NONE) {
-                player.held_object = { .name = ObjectT::TOMATO };
-            }
-        } else if (terrain_type == TerrainT::DISH_SOURCE) {
-            if (player.held_object.name == ObjectT::NONE) {
-                player.held_object = { .name = ObjectT::DISH };
-            }
-        } else if (terrain_type == TerrainT::POT) {
-            int player_loc_idx = dat.num_interacting_players.fetch_add_relaxed(1);
-            dat.interacting_players[player_loc_idx] = i;
-        } else if (terrain_type == TerrainT::SERVING) {
-            if (player.has_object()) {
-                Object obj = player.get_object();
-                if (obj.name == ObjectT::SOUP) {
-                    ws.calculated_reward.fetch_add_relaxed(deliver_soup(ws, player, obj));
-                }
+        for (int p = 0; p < ws.height * ws.width; p++) {
+            LocationData &dat = ctx.getUnsafe<LocationData>(ctx.data().locations[p]);
+            if (dat.terrain == TerrainT::COUNTER && dat.object.name == ObjectT::DISH) {
+                return false;
             }
         }
+
+        int num_player_dishes = 0;
+        for (int p = 0; p < 2; p++) {
+            if (ctx.getUnsafe<PlayerState>(ctx.data().agents[p]).held_object.name == ObjectT::DISH) {
+                num_player_dishes++;
+            }
+        }
+        return num_player_dishes < non_empty_pots;
     }
 
-    // REQUIRES: original player.position, orientation, held_object
-    // MODIFIES: player.interaction_index
-    inline void setup_interact_time(Engine &ctx, PlayerState &ps, AgentID &id, Action &action)
+    inline void resolve_interacts(Engine &ctx, WorldState &ws)
     {
-        if (action.choice != ActionT::INTERACT) {
-            return;
-        }
-        WorldState &ws = ctx.getSingleton<WorldState>();
+        int32_t pot_states = get_pot_states(ctx, ws);
 
-        int32_t pos = ps.position;
-        int32_t o = ps.orientation;
-    
-        int32_t i_pos = move_in_direction(pos, o, ws.width);
-        LocationData &dat = ctx.getUnsafe<LocationData>(ctx.data().locations[i_pos]);
-        TerrainT terrain_type = dat.terrain;
-        if (terrain_type == TerrainT::COUNTER || terrain_type == TerrainT::POT) {
-            ps.interaction_index = 0;
-            // max of 4
-            int num_int_players = dat.num_interacting_players.load_relaxed();
-            for (int i = 0; i < num_int_players; i++) {
-                if (dat.interacting_players[i] < id.id) {
-                    ps.interaction_index++;
-                }
+        int rew = 0;
+
+        for (int i = 0; i < ws.num_players; i++) {
+            PlayerState &player = ctx.getUnsafe<PlayerState>(ctx.data().agents[i]);
+            Action &action = ctx.getUnsafe<Action>(ctx.data().agents[i]);
+
+            // reward.rew = 0;
+
+            if (action.choice != ActionT::INTERACT) {
+                continue;
             }
-        }
-    }
-
-    // REQUIRES: player.interaction_index, original position, orientation, held_object
-    // MODIFIES: LocationData.object, player.held_object, ws.calculated_reward
-    inline void do_counter_pot_interaction(Engine &ctx, PlayerState &player, int iternum)
-    {
-        if (player.interaction_index == iternum) {
-            WorldState &ws = ctx.getSingleton<WorldState>();
 
             int32_t pos = player.position;
             int32_t o = player.orientation;
-    
-            int32_t i_pos = move_in_direction(pos, o, ws.width);
-            TerrainT terrain_type = ctx.getUnsafe<LocationData>(ctx.data().locations[i_pos]).terrain;
 
+            int32_t i_pos = move_in_direction(pos, o, ws.width);
+
+            LocationData &dat = ctx.getUnsafe<LocationData>(ctx.data().locations[i_pos]);
+            TerrainT terrain_type = dat.terrain;
+            
             Object &soup = ctx.getUnsafe<LocationData>(ctx.data().locations[i_pos]).object;
 
             if (terrain_type == TerrainT::COUNTER) {
@@ -321,25 +285,36 @@ namespace Simplecooked {
                     player.set_object(soup);
                     soup = { .name = ObjectT::NONE };
                 }
+            } else if (terrain_type == TerrainT::ONION_SOURCE) {
+                if (player.held_object.name == ObjectT::NONE) {
+                    player.held_object = { .name = ObjectT::ONION };
+                }
+            } else if (terrain_type == TerrainT::TOMATO_SOURCE) {
+                if (player.held_object.name == ObjectT::NONE) {
+                    player.held_object = { .name = ObjectT::TOMATO };
+                }
+            } else if (terrain_type == TerrainT::DISH_SOURCE) {
+                if (player.held_object.name == ObjectT::NONE) {
+                    if (is_dish_pickup_useful(ctx, ws, pot_states)) {
+                        rew += ws.dish_pickup_rew;
+                    }
+                    player.held_object = { .name = ObjectT::DISH };
+                }
             } else if (terrain_type == TerrainT::POT) {
                 // if (!player.has_object()) {
-                //     // order doesn't matter if soup_to_be_cooked_at_location
-                //     if (soup_to_be_cooked_at_location(ws, soup)) {
+                //     if (soup_to_be_cooked_at_location(ws, i_pos)) {
                 //         soup.cooking_tick = 0;
                 //     }
                 // } else {
                 if (player.get_object().name == ObjectT::DISH && soup_ready_at_location(ws, soup)) {
-                    // order matters, only agent with lowest index can take soup
                     player.set_object(soup);
                     soup = { .name = ObjectT::NONE };
-                    ws.calculated_reward.fetch_add_relaxed(ws.soup_pickup_rew);
+                    rew += ws.soup_pickup_rew;
                 } else if (player.get_object().name == ObjectT::ONION || player.get_object().name == ObjectT::TOMATO) {
-                    // order matters, only some agents can actually add to pot
                     if (soup.name == ObjectT::NONE) {
                         soup = { .name = ObjectT::SOUP };
                     }
 
-                    // Object &soup = soup;
                     if (!(soup.cooking_tick >= 0 || soup.num_ingredients() == MAX_NUM_INGREDIENTS)) {
                         Object obj = player.remove_object();
                         if (obj.name == ObjectT::ONION) {
@@ -347,7 +322,7 @@ namespace Simplecooked {
                         } else {
                             soup.num_tomatoes++;
                         }
-                        ws.calculated_reward.fetch_add_relaxed(ws.placement_in_pot_rew);
+                        rew += ws.placement_in_pot_rew;
                     }
 
                     if (soup_to_be_cooked_at_location(ws, soup) && soup.num_ingredients() == MAX_NUM_INGREDIENTS) {
@@ -355,29 +330,182 @@ namespace Simplecooked {
                     }
                 }
                 // }
+            } else if (terrain_type == TerrainT::SERVING) {
+                if (player.has_object()) {
+                    Object obj = player.get_object();
+                    if (obj.name == ObjectT::SOUP) {
+                        rew += deliver_soup(ws, player, obj);
+                    }
+                }
             }
+
         }
+        ws.calculated_reward.store_relaxed(rew);
     }
 
-    inline void do_counter_pot_int0(Engine &ctx, PlayerState &player)
-    {
-        do_counter_pot_interaction(ctx, player, 0);
-    }
+    // // REQUIRES: reset WorldState.calculated_reward, LocationData.num_interacting_players, original player.position, orientation, held_object
+    // // MODIFIES: LocationData.num_interacting_players, LocationData.interacting_players, player.held_object, ws.calculated_reward
+    // inline void resolve_interacts(Engine &ctx, PlayerState &player, AgentID &id, Action &action)
+    // {
+    //     int i = id.id;
 
-    inline void do_counter_pot_int1(Engine &ctx, PlayerState &player)
-    {
-        do_counter_pot_interaction(ctx, player, 1);
-    }
+    //     player.interaction_index = -1;
 
-    inline void do_counter_pot_int2(Engine &ctx, PlayerState &player)
-    {
-        do_counter_pot_interaction(ctx, player, 2);
-    }
+    //     if (action.choice != ActionT::INTERACT) {
+    //         return;
+    //     }
 
-    inline void do_counter_pot_int3(Engine &ctx, PlayerState &player)
-    {
-        do_counter_pot_interaction(ctx, player, 3);
-    }
+    //     WorldState &ws = ctx.getSingleton<WorldState>();
+
+    //     int32_t pos = player.position;
+    //     int32_t o = player.orientation;
+
+    //     int32_t i_pos = move_in_direction(pos, o, ws.width);
+
+    //     LocationData &dat = ctx.getUnsafe<LocationData>(ctx.data().locations[i_pos]);
+
+    //     TerrainT terrain_type = dat.terrain;
+
+    //     int pot_states = get_pot_states(ctx, ws);
+
+    //     if (terrain_type == TerrainT::COUNTER) {
+    //         int player_loc_idx = dat.num_interacting_players.fetch_add_relaxed(1);
+    //         dat.interacting_players[player_loc_idx] = i;
+    //     } else if (terrain_type == TerrainT::ONION_SOURCE) {
+    //         if (player.held_object.name == ObjectT::NONE) {
+    //             player.held_object = { .name = ObjectT::ONION };
+    //         }
+    //     } else if (terrain_type == TerrainT::TOMATO_SOURCE) {
+    //         if (player.held_object.name == ObjectT::NONE) {
+    //             player.held_object = { .name = ObjectT::TOMATO };
+    //         }
+    //     } else if (terrain_type == TerrainT::DISH_SOURCE) {
+    //         if (player.held_object.name == ObjectT::NONE) {
+    //             player.held_object = { .name = ObjectT::DISH };
+    //             // TODO: Reward shaping params
+    //             if (is_dish_pickup_useful(ctx, ws, pot_states)) {
+    //                 ws.calculated_reward.fetch_add_relaxed(ws.dish_pickup_rew);
+    //             }
+    //         }
+    //     } else if (terrain_type == TerrainT::POT) {
+    //         int player_loc_idx = dat.num_interacting_players.fetch_add_relaxed(1);
+    //         dat.interacting_players[player_loc_idx] = i;
+    //     } else if (terrain_type == TerrainT::SERVING) {
+    //         if (player.has_object()) {
+    //             Object obj = player.get_object();
+    //             if (obj.name == ObjectT::SOUP) {
+    //                 ws.calculated_reward.fetch_add_relaxed(deliver_soup(ws, player, obj));
+    //             }
+    //         }
+    //     }
+    // }
+
+    // // REQUIRES: original player.position, orientation, held_object
+    // // MODIFIES: player.interaction_index
+    // inline void setup_interact_time(Engine &ctx, PlayerState &ps, AgentID &id, Action &action)
+    // {
+    //     if (action.choice != ActionT::INTERACT) {
+    //         return;
+    //     }
+    //     WorldState &ws = ctx.getSingleton<WorldState>();
+
+    //     int32_t pos = ps.position;
+    //     int32_t o = ps.orientation;
+    
+    //     int32_t i_pos = move_in_direction(pos, o, ws.width);
+    //     LocationData &dat = ctx.getUnsafe<LocationData>(ctx.data().locations[i_pos]);
+    //     TerrainT terrain_type = dat.terrain;
+    //     if (terrain_type == TerrainT::COUNTER || terrain_type == TerrainT::POT) {
+    //         ps.interaction_index = 0;
+    //         // max of 4
+    //         int num_int_players = dat.num_interacting_players.load_relaxed();
+    //         for (int i = 0; i < num_int_players; i++) {
+    //             if (dat.interacting_players[i] < id.id) {
+    //                 ps.interaction_index++;
+    //             }
+    //         }
+    //     }
+    // }
+
+    // // REQUIRES: player.interaction_index, original position, orientation, held_object
+    // // MODIFIES: LocationData.object, player.held_object, ws.calculated_reward
+    // inline void do_counter_pot_interaction(Engine &ctx, PlayerState &player, int iternum)
+    // {
+    //     if (player.interaction_index == iternum) {
+    //         WorldState &ws = ctx.getSingleton<WorldState>();
+
+    //         int32_t pos = player.position;
+    //         int32_t o = player.orientation;
+    
+    //         int32_t i_pos = move_in_direction(pos, o, ws.width);
+    //         TerrainT terrain_type = ctx.getUnsafe<LocationData>(ctx.data().locations[i_pos]).terrain;
+
+    //         Object &soup = ctx.getUnsafe<LocationData>(ctx.data().locations[i_pos]).object;
+
+    //         if (terrain_type == TerrainT::COUNTER) {
+    //             if (player.has_object() && soup.name == ObjectT::NONE) {
+    //                 soup = player.remove_object();
+    //             } else if (!player.has_object() && soup.name != ObjectT::NONE) {
+    //                 player.set_object(soup);
+    //                 soup = { .name = ObjectT::NONE };
+    //             }
+    //         } else if (terrain_type == TerrainT::POT) {
+    //             // if (!player.has_object()) {
+    //             //     // order doesn't matter if soup_to_be_cooked_at_location
+    //             //     if (soup_to_be_cooked_at_location(ws, soup)) {
+    //             //         soup.cooking_tick = 0;
+    //             //     }
+    //             // } else {
+    //             if (player.get_object().name == ObjectT::DISH && soup_ready_at_location(ws, soup)) {
+    //                 // order matters, only agent with lowest index can take soup
+    //                 player.set_object(soup);
+    //                 soup = { .name = ObjectT::NONE };
+    //                 ws.calculated_reward.fetch_add_relaxed(ws.soup_pickup_rew);
+    //             } else if (player.get_object().name == ObjectT::ONION || player.get_object().name == ObjectT::TOMATO) {
+    //                 // order matters, only some agents can actually add to pot
+    //                 if (soup.name == ObjectT::NONE) {
+    //                     soup = { .name = ObjectT::SOUP };
+    //                 }
+
+    //                 // Object &soup = soup;
+    //                 if (!(soup.cooking_tick >= 0 || soup.num_ingredients() == MAX_NUM_INGREDIENTS)) {
+    //                     Object obj = player.remove_object();
+    //                     if (obj.name == ObjectT::ONION) {
+    //                         soup.num_onions++;
+    //                     } else {
+    //                         soup.num_tomatoes++;
+    //                     }
+    //                     ws.calculated_reward.fetch_add_relaxed(ws.placement_in_pot_rew);
+    //                 }
+
+    //                 if (soup_to_be_cooked_at_location(ws, soup) && soup.num_ingredients() == MAX_NUM_INGREDIENTS) {
+    //                     soup.cooking_tick = 0;
+    //                 }
+    //             }
+    //             // }
+    //         }
+    //     }
+    // }
+
+    // inline void do_counter_pot_int0(Engine &ctx, PlayerState &player)
+    // {
+    //     do_counter_pot_interaction(ctx, player, 0);
+    // }
+
+    // inline void do_counter_pot_int1(Engine &ctx, PlayerState &player)
+    // {
+    //     do_counter_pot_interaction(ctx, player, 1);
+    // }
+
+    // inline void do_counter_pot_int2(Engine &ctx, PlayerState &player)
+    // {
+    //     do_counter_pot_interaction(ctx, player, 2);
+    // }
+
+    // inline void do_counter_pot_int3(Engine &ctx, PlayerState &player)
+    // {
+    //     do_counter_pot_interaction(ctx, player, 3);
+    // }
 
 
     // REQUIRES: original player position, orientation
@@ -521,13 +649,13 @@ namespace Simplecooked {
     void Sim::setupTasks(TaskGraph::Builder &builder, const Config &)
     {
         // Handle "Interactions"
-        auto pre_interact_sys = builder.addToGraph<ParallelForNode<Engine, pre_resolve_interacts, WorldState>>({});
-        auto resolve_interact_sys = builder.addToGraph<ParallelForNode<Engine, resolve_interacts, PlayerState, AgentID, Action>>({pre_interact_sys});
-        auto interact_time_sys = builder.addToGraph<ParallelForNode<Engine, setup_interact_time, PlayerState, AgentID, Action>>({resolve_interact_sys});
-        auto counter_pot_sys0 = builder.addToGraph<ParallelForNode<Engine, do_counter_pot_int0, PlayerState>>({interact_time_sys});
-        auto counter_pot_sys1 = builder.addToGraph<ParallelForNode<Engine, do_counter_pot_int1, PlayerState>>({counter_pot_sys0});
-        auto counter_pot_sys2 = builder.addToGraph<ParallelForNode<Engine, do_counter_pot_int2, PlayerState>>({counter_pot_sys1});
-        auto counter_pot_sys3 = builder.addToGraph<ParallelForNode<Engine, do_counter_pot_int3, PlayerState>>({counter_pot_sys2});
+        auto pre_interact_sys = builder.addToGraph<ParallelForNode<Engine, resolve_interacts, WorldState>>({});
+        // auto resolve_interact_sys = builder.addToGraph<ParallelForNode<Engine, resolve_interacts, PlayerState, AgentID, Action>>({pre_interact_sys});
+        // auto interact_time_sys = builder.addToGraph<ParallelForNode<Engine, setup_interact_time, PlayerState, AgentID, Action>>({resolve_interact_sys});
+        // auto counter_pot_sys0 = builder.addToGraph<ParallelForNode<Engine, do_counter_pot_int0, PlayerState>>({interact_time_sys});
+        // auto counter_pot_sys1 = builder.addToGraph<ParallelForNode<Engine, do_counter_pot_int1, PlayerState>>({counter_pot_sys0});
+        // auto counter_pot_sys2 = builder.addToGraph<ParallelForNode<Engine, do_counter_pot_int2, PlayerState>>({counter_pot_sys1});
+        // auto counter_pot_sys3 = builder.addToGraph<ParallelForNode<Engine, do_counter_pot_int3, PlayerState>>({counter_pot_sys2});
 
         // Calculate next movement
         auto move_sys = builder.addToGraph<ParallelForNode<Engine, _move_if_direction, PlayerState, Action, AgentID>>({});
@@ -535,10 +663,10 @@ namespace Simplecooked {
         auto unset_loc_info = builder.addToGraph<ParallelForNode<Engine, _unset_loc_info, PlayerState, AgentID>>({check_collision_sys});
 
         // Modify position (need to do after all interactions are done)
-        auto collision_sys = builder.addToGraph<ParallelForNode<Engine, _handle_collisions, PlayerState, AgentID>>({unset_loc_info, counter_pot_sys3});
+        auto collision_sys = builder.addToGraph<ParallelForNode<Engine, _handle_collisions, PlayerState, AgentID>>({unset_loc_info, pre_interact_sys});
 
         // Step time of cooking pots (does not rely on player locations)
-        auto env_step_sys = builder.addToGraph<ParallelForNode<Engine, step_pot_effects, PotInfo>>({counter_pot_sys3});    
+        auto env_step_sys = builder.addToGraph<ParallelForNode<Engine, step_pot_effects, PotInfo>>({pre_interact_sys});
 
         // Should terminate in next timestep? (don't need to do whole step to make judgement)
         auto terminate_sys = builder.addToGraph<ParallelForNode<Engine, check_reset_system, WorldState>>({});
@@ -605,6 +733,7 @@ namespace Simplecooked {
             }
         }
         ws.num_players = cfg.num_players;
+        ws.num_pots = num_pots;
 
         pots = (Entity *)rawAlloc(num_pots * sizeof(Entity));
         int pot_i = 0;
