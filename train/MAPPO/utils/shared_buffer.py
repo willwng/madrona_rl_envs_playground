@@ -21,7 +21,7 @@ class SharedReplayBuffer(object):
     :param act_space: (gym.Space) action space for agents.
     """
 
-    def __init__(self, args, num_agents, obs_space, cent_obs_space, act_space):
+    def __init__(self, args, num_agents, obs_space, cent_obs_space, act_space, device):
         self.episode_length = args.episode_length
         self.n_rollout_threads = args.n_rollout_threads
         self.hidden_size = args.hidden_size
@@ -32,6 +32,7 @@ class SharedReplayBuffer(object):
         self._use_popart = args.use_popart
         self._use_valuenorm = args.use_valuenorm
         self._use_proper_time_limits = args.use_proper_time_limits
+        self.device = device
 
         obs_shape = get_shape_from_obs_space(obs_space)
         share_obs_shape = get_shape_from_obs_space(cent_obs_space)
@@ -43,34 +44,34 @@ class SharedReplayBuffer(object):
             share_obs_shape = share_obs_shape[:1]
 
         self.share_obs = torch.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *share_obs_shape),
-                                  dtype=torch.float)
-        self.obs = torch.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *obs_shape), dtype=torch.float)
+                                  dtype=torch.float, device=self.device)
+        self.obs = torch.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *obs_shape), dtype=torch.float, device=self.device)
 
         self.rnn_states = torch.zeros(
             (self.episode_length + 1, self.n_rollout_threads, num_agents, self.recurrent_N, self.hidden_size),
-            dtype=torch.float)
+            dtype=torch.float, device=self.device)
         self.rnn_states_critic = torch.zeros_like(self.rnn_states)
 
         self.value_preds = torch.zeros(
-            (self.episode_length + 1, self.n_rollout_threads, num_agents, 1), dtype=torch.float)
+            (self.episode_length + 1, self.n_rollout_threads, num_agents, 1), dtype=torch.float, device=self.device)
         self.returns = torch.zeros_like(self.value_preds)
 
         if act_space.__class__.__name__ == 'Discrete':
             self.available_actions = torch.ones((self.episode_length + 1, self.n_rollout_threads, num_agents, act_space.n),
-                                             dtype=torch.float)
+                                             dtype=torch.float, device=self.device)
         else:
             self.available_actions = None
 
         act_shape = get_shape_from_act_space(act_space)
 
         self.actions = torch.zeros(
-            (self.episode_length, self.n_rollout_threads, num_agents, act_shape), dtype=torch.float)
+            (self.episode_length, self.n_rollout_threads, num_agents, act_shape), dtype=torch.float, device=self.device)
         self.action_log_probs = torch.zeros(
-            (self.episode_length, self.n_rollout_threads, num_agents, act_shape), dtype=torch.float)
+            (self.episode_length, self.n_rollout_threads, num_agents, act_shape), dtype=torch.float, device=self.device)
         self.rewards = torch.zeros(
-            (self.episode_length, self.n_rollout_threads, num_agents, 1), dtype=torch.float)
+            (self.episode_length, self.n_rollout_threads, num_agents, 1), dtype=torch.float, device=self.device)
 
-        self.masks = torch.ones((self.episode_length + 1, self.n_rollout_threads, num_agents, 1), dtype=torch.float)
+        self.masks = torch.ones((self.episode_length + 1, self.n_rollout_threads, num_agents, 1), dtype=torch.float, device=self.device)
         self.bad_masks = torch.ones_like(self.masks)
         self.active_masks = torch.ones_like(self.masks)
 

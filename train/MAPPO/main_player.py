@@ -41,7 +41,8 @@ class MainPlayer:
             self.num_agents,
             self.envs.observation_space,
             share_observation_space,
-            self.envs.action_space
+            self.envs.action_space,
+            self.device
         )
 
     def _init_vars(self, config):
@@ -89,7 +90,7 @@ class MainPlayer:
 
     def collect_episode(self, buffer=None, length=None, save_scores=True):
         buffer = buffer or self.buffer
-        self.running_score = torch.zeros((self.n_rollout_threads))
+        self.running_score = torch.zeros((self.n_rollout_threads), device=self.device)
         if length is None:
             length = self.episode_length
         if save_scores:
@@ -164,7 +165,7 @@ class MainPlayer:
 
             print("average score is {}.".format(average_score))
 
-            train_infos["average_step_rewards"] = torch.mean(self.buffer.rewards)
+            train_infos["average_step_rewards"] = torch.mean(self.buffer.rewards).item()
 
             # self.log_train(train_infos, self.true_total_num_steps)
             print(train_infos)
@@ -195,12 +196,15 @@ class MainPlayer:
         for episode in range(episodes):
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
+            print("Collecting Episode")
             self.collect_episode()
+            print("Done collecting episode")
             total_num_steps += self.episode_length * self.n_rollout_threads
 
             self.log(train_infos, episode, episodes, total_num_steps, start)
-
+            print("Done logging")
             self.compute()
+            print("Done computing returns")
             train_infos = self.train()
             print("DONE TRAINING:", episode)
 
@@ -257,18 +261,18 @@ class MainPlayer:
             self.running_score[dones] = 0
 
     def setup_data(self):
-        self.turn_obs = torch.zeros((self.n_rollout_threads,*self.buffer.obs.shape[2:]), dtype=torch.float)
-        self.turn_share_obs = torch.zeros((self.n_rollout_threads,*self.buffer.share_obs.shape[2:]), dtype=torch.float)
-        self.turn_available_actions = torch.zeros((self.n_rollout_threads,*self.buffer.available_actions.shape[2:]), dtype=torch.float)
-        self.turn_values = torch.zeros((self.n_rollout_threads,*self.buffer.value_preds.shape[2:]), dtype=torch.float)
-        self.turn_actions = torch.zeros((self.n_rollout_threads,*self.buffer.actions.shape[2:]), dtype=torch.float)
-        self.turn_action_log_probs = torch.zeros((self.n_rollout_threads,*self.buffer.action_log_probs.shape[2:]), dtype=torch.float)
-        self.turn_rnn_states = torch.zeros((self.n_rollout_threads,*self.buffer.rnn_states.shape[2:]), dtype=torch.float)
+        self.turn_obs = torch.zeros((self.n_rollout_threads,*self.buffer.obs.shape[2:]), dtype=torch.float, device=self.device)
+        self.turn_share_obs = torch.zeros((self.n_rollout_threads,*self.buffer.share_obs.shape[2:]), dtype=torch.float, device=self.device)
+        self.turn_available_actions = torch.zeros((self.n_rollout_threads,*self.buffer.available_actions.shape[2:]), dtype=torch.float, device=self.device)
+        self.turn_values = torch.zeros((self.n_rollout_threads,*self.buffer.value_preds.shape[2:]), dtype=torch.float, device=self.device)
+        self.turn_actions = torch.zeros((self.n_rollout_threads,*self.buffer.actions.shape[2:]), dtype=torch.float, device=self.device)
+        self.turn_action_log_probs = torch.zeros((self.n_rollout_threads,*self.buffer.action_log_probs.shape[2:]), dtype=torch.float, device=self.device)
+        self.turn_rnn_states = torch.zeros((self.n_rollout_threads,*self.buffer.rnn_states.shape[2:]), dtype=torch.float, device=self.device)
         self.turn_rnn_states_critic = torch.zeros_like(self.turn_rnn_states)
-        self.turn_masks = torch.ones((self.n_rollout_threads,*self.buffer.masks.shape[2:]), dtype=torch.float)
+        self.turn_masks = torch.ones((self.n_rollout_threads,*self.buffer.masks.shape[2:]), dtype=torch.float, device=self.device)
         self.turn_active_masks = torch.ones_like(self.turn_masks)
         self.turn_bad_masks = torch.ones_like(self.turn_masks)
-        self.turn_rewards = torch.zeros((self.n_rollout_threads, *self.buffer.rewards.shape[2:]), dtype=torch.float)
+        self.turn_rewards = torch.zeros((self.n_rollout_threads, *self.buffer.rewards.shape[2:]), dtype=torch.float, device=self.device)
 
         self.turn_rewards_since_last_action = torch.zeros_like(self.turn_rewards)
 
@@ -281,7 +285,7 @@ class MainPlayer:
         self.use_share_obs = vobs.state.clone()
         self.use_available_actions = vobs.action_mask.clone()
         # self.use_is_active = _t2n(vobs.active).copy()
-        self.running_score = torch.zeros((self.n_rollout_threads), dtype=torch.float)
+        self.running_score = torch.zeros((self.n_rollout_threads), dtype=torch.float, device=self.device)
 
 
     @torch.no_grad()

@@ -8,9 +8,13 @@ from env_utils import generate_env
 
 from partner_agents import CentralizedAgent
 
+import torch
+
 args = get_config().parse_args()
 
-envs = generate_env(args.env_name, args.n_rollout_threads, args.over_layout)
+device = 'cuda' if torch.cuda.is_available() and args.cuda else 'cpu'
+
+envs = generate_env(args.env_name, args.n_rollout_threads, args.over_layout, use_env_cpu=(device=='cpu'))
 
 args.hanabi_name = args.over_layout if args.env_name == 'overcooked' else args.env_name
 
@@ -29,7 +33,7 @@ with open(run_dir + "/" + "args.txt", "w", encoding="UTF-8") as file:
 config = {
     'all_args': args,
     'envs': envs,
-    'device': 'cpu',
+    'device': device,
     'num_agents': 2,
     'run_dir': Path(run_dir)
 }

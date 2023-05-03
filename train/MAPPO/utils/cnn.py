@@ -5,7 +5,7 @@ from .util import init
 
 class Flatten(nn.Module):
     def forward(self, x):
-        return x.view(x.size(0), -1)
+        return x.reshape(x.size(0), -1)
 
 
 class CNNLayer(nn.Module):
