@@ -6,7 +6,7 @@
 from pantheonrl_extension.vectoragent import VectorAgent
 
 # from MAPPO.utils.util import _t2n
-from MAPPO.main_player import MainPlayer
+from .MAPPO.main_player import MainPlayer
 # from MAPPO.r_actor_critic import R_Actor
 
 # import numpy as np

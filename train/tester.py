@@ -1,12 +1,12 @@
-from MAPPO.main_player import MainPlayer
+from .MAPPO.main_player import MainPlayer
 
-from config import get_config
+from .config import get_config
 import os
 from pathlib import Path
 
-from env_utils import generate_env
+from .env_utils import generate_env
 
-from partner_agents import CentralizedAgent
+from .partner_agents import CentralizedAgent
 
 import torch
 import torch.nn as nn
@@ -57,6 +57,7 @@ config = {
     'run_dir': run_dir
 }
 ego = MainPlayer(config)
+ego.restore()
 torch_network = Policy(ego.policy.actor)
 
 actions = torch.zeros((2, args.n_rollout_threads, 1), dtype=int, device=device)
