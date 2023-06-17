@@ -14,7 +14,7 @@ args = get_config().parse_args()
 
 device = 'cuda' if torch.cuda.is_available() and args.cuda else 'cpu'
 
-envs = generate_env(args.env_name, args.n_rollout_threads, args.over_layout, use_env_cpu=(device=='cpu'))
+envs = generate_env(args.env_name, args.n_rollout_threads, args.over_layout, use_env_cpu=(device=='cpu'), use_baseline=args.use_baseline)
 
 args.hanabi_name = args.over_layout if args.env_name == 'overcooked' else args.env_name
 
