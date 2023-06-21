@@ -1,6 +1,6 @@
 # Madrona RL Environments
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/bsarkar321/madrona_rl_envs/blob/master/train_overcooked.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/bsarkar321/madrona_rl_envs/blob/master/overcooked_colab.ipynb)
 
 Implementation of various RL Environments in Madrona
 
