@@ -1,10 +1,12 @@
 # Madrona RL Environments
 
-Implementation of various RL Environments in Madrona
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/bsarkar321/madrona_rl_envs/blob/master/overcooked_compiled_colab.ipynb)
+
+Implementation of various RL Environments in Madrona. You can also train an Overcooked agent in 2 minutes using the Google Colab link above.
 
 ## Requirements
 
-To use Madrona with GPU, you need a CUDA version of at least 11.7 and a cmake version of at least 3.18. For these environments, you also need to have conda environments (miniconda/anaconda).
+To use Madrona with GPU, you need a CUDA version of at least 12.0 and a cmake version of at least 3.18. For these environments, you also need to have conda environments (miniconda/anaconda).
 
 To install miniconda (from miniconda3 instructions):
 ```
