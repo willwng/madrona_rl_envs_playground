@@ -27,7 +27,7 @@ THETA_THRESHOLD_RADIANS = 12 * 2 * pi / 360
 
 class CartpoleMadronaNumpy(VectorEnv):
 
-    def __init__(self, num_envs, gpu_id, debug_compile=True):
+    def __init__(self, num_envs, gpu_id, debug_compile=True, use_cpu=False, use_env_cpu=False):
         high = np.array(
             [
                 X_THRESHOLD * 2,
@@ -38,13 +38,17 @@ class CartpoleMadronaNumpy(VectorEnv):
             dtype=np.float32,
         )
 
-        self.device = torch.device('cuda', gpu_id) if torch.cuda.is_available() else torch.device('cpu')
+        if use_env_cpu:
+            self.device = torch.device('cpu')
+        else:
+            self.device = torch.device('cuda', gpu_id) if torch.cuda.is_available() else torch.device('cpu')
 
         action_space = spaces.Discrete(2)
         observation_space = spaces.Box(-high, high, dtype=np.float32)
         super().__init__(num_envs, observation_space, action_space)
 
         self.sim = cartpole_python.CartpoleSimulator(
+            exec_mode = cartpole_python.ExecMode.CPU if use_cpu else cartpole_python.ExecMode.CUDA,
             gpu_id = gpu_id,
             num_worlds = num_envs,
             debug_compile = debug_compile,
@@ -58,11 +62,12 @@ class CartpoleMadronaNumpy(VectorEnv):
         self.infos = [{}] * self.num_envs
 
     def step(self, actions):
+        actions = actions[:, np.newaxis]
         self.static_actions.copy_(torch.from_numpy(actions))
 
         self.sim.step()
 
-        return to_np(self.static_observations), to_np(self.static_rewards), to_np(self.static_gathers), [{}] * self.num_envs
+        return to_np(self.static_observations), to_np(self.static_rewards), to_np(self.static_dones[:, 0]), [{}] * self.num_envs
 
     def reset(self):
         return to_np(self.static_observations)
@@ -110,11 +115,12 @@ class CartpoleMadronaTorch(VectorEnv):
         return a.to(self.device)
 
     def step(self, actions):
+        actions = actions[:, np.newaxis]
         self.static_actions.copy_(actions)
         
         self.sim.step()
 
-        return self.to_torch(self.static_observations), self.to_torch(self.static_rewards), self.to_torch(self.static_dones), self.infos
+        return self.to_torch(self.static_observations), self.to_torch(self.static_rewards), self.to_torch(self.static_dones[:, 0]), self.infos
 
     def reset(self):
         return self.to_torch(self.static_observations)

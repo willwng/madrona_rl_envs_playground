@@ -13,9 +13,9 @@ from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter
 
 from envs.hanabi_env import HanabiMadrona, PantheonHanabi, config_choice
-# from pantheonrl_extension.vectoragent import RandomVectorAgent, CleanPPOAgent
+from pantheonrl_extension.vectoragent import RandomVectorAgent, CleanPPOAgent
 from pantheonrl_extension.vectorenv import SyncVectorEnv
-from pantheonrl_extension.centralized_vectoragent import MainCPPOAgent, PartnerCPPOAgent
+# from pantheonrl_extension.centralized_vectoragent import MainCPPOAgent, PartnerCPPOAgent
 
 from tqdm import tqdm
 
@@ -111,7 +111,7 @@ assert args.cuda
 
 num_updates = args.num_updates #  args.total_timesteps // int(args.num_envs * args.num_steps)
 
-partner = MainCPPOAgent(
+ego = CleanPPOAgent(
     envs = env,
     name = run_name + "_ego",
     device = torch.device("cuda", 0),
@@ -133,9 +133,26 @@ partner = MainCPPOAgent(
     target_kl = args.target_kl
 )
 
-ego = PartnerCPPOAgent(
-    partner,
-    0
+partner = CleanPPOAgent(
+    envs = env,
+    name = run_name + "_alt",
+    device = torch.device("cuda", 0),
+    num_updates = num_updates,
+    verbose = True,
+    lr = args.learning_rate,
+    num_steps = args.num_steps,
+    anneal_lr = args.anneal_lr,
+    gamma = args.gamma,
+    gae_lambda = args.gae_lambda,
+    num_minibatches = args.num_minibatches,
+    update_epochs = args.update_epochs,
+    norm_adv = args.norm_adv,
+    clip_coef = args.clip_coef,
+    clip_vloss = args.clip_vloss,
+    ent_coef = args.ent_coef,
+    vf_coef = args.vf_coef,
+    max_grad_norm = args.max_grad_norm,
+    target_kl = args.target_kl
 )
 
 # partner = RandomVectorAgent(lambda: torch.randint_like(env.static_actions[0], high=4))
