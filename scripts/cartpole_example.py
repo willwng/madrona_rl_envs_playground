@@ -36,10 +36,10 @@ if __name__ == "__main__":
         env = gym.vector.AsyncVectorEnv(
                 [lambda: CartpoleNumpy() for _ in range(args.num_envs)],
             )
-        actions = torch.zeros((args.num_envs, 1), dtype=int)
+        actions = torch.zeros((args.num_envs), dtype=int)
     else:
         env = CartpoleMadronaTorch(args.num_envs, 0, args.debug_compile, args.use_cpu, args.use_env_cpu)
-        actions = torch.zeros((args.num_envs, 1), dtype=int).to(device=env.device)
+        actions = torch.zeros((args.num_envs), dtype=int).to(device=env.device)
 
     old_state = env.reset()
     num_errors = 0

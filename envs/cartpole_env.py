@@ -248,7 +248,7 @@ def validate_step(states, actions, dones, nextstates, verbose=True):
     numenvs = dones.size(0)
 
     states = states.cpu().numpy()
-    actions = actions[:, 0].cpu().numpy()
+    actions = actions.cpu().numpy()
     dones = dones.cpu().numpy()
     nextstates = nextstates.cpu().numpy()
 
