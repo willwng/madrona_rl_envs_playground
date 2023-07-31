@@ -4,7 +4,7 @@ This is an implementation of the open source [[https://github.com/HumanCompatibl
 
 ** Installation
 
-If you have already followed the instructions from the [[file:/scp:bidiptas@iliad5.stanford.edu:/iliad/u/bidiptas/madrona_rl_envs/README.md][main README]], Overcooked should already be installed. Otherwise, follow the following directions:
+If you have already followed the instructions from the [[file:../../README.md][main README]], Overcooked should already be installed. Otherwise, follow the following directions:
 
 #+begin_src bash
   conda create -n madrona python=3.10
