@@ -1,6 +1,6 @@
 from envs.hanabi_env import HanabiMadrona, PantheonHanabi, validate_step, config_choice
 
-from pantheonrl_extension.asyncvectorenv import AsyncVectorEnv
+from pantheonrl_extension.vectorenv import SyncVectorEnv
 from pantheonrl_extension.vectorobservation import VectorObservation
 
 import torch
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     han_conf = config_choice[args.hanabi_type]
 
     if args.use_baseline:
-        env = AsyncVectorEnv(
+        env = SyncVectorEnv(
                 [lambda: PantheonHanabi(han_conf) for _ in range(args.num_envs)],
                 device=torch.device('cpu') if args.use_env_cpu else None
             )

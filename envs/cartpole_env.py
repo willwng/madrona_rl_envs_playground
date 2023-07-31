@@ -1,5 +1,4 @@
 from gym.vector.vector_env import VectorEnv
-import build.madrona_python as madrona_python
 import build.madrona_cartpole_example_python as cartpole_python
 import torch
 
@@ -48,7 +47,7 @@ class CartpoleMadronaNumpy(VectorEnv):
         super().__init__(num_envs, observation_space, action_space)
 
         self.sim = cartpole_python.CartpoleSimulator(
-            exec_mode = cartpole_python.ExecMode.CPU if use_cpu else cartpole_python.ExecMode.CUDA,
+            exec_mode = cartpole_python.madrona.ExecMode.CPU if use_cpu else cartpole_python.madrona.ExecMode.CUDA,
             gpu_id = gpu_id,
             num_worlds = num_envs,
             debug_compile = debug_compile,
@@ -98,7 +97,7 @@ class CartpoleMadronaTorch(VectorEnv):
         super().__init__(num_envs, observation_space, action_space)
 
         self.sim = cartpole_python.CartpoleSimulator(
-            exec_mode = cartpole_python.ExecMode.CPU if use_cpu else cartpole_python.ExecMode.CUDA,
+            exec_mode = cartpole_python.madrona.ExecMode.CPU if use_cpu else cartpole_python.madrona.ExecMode.CUDA,
             gpu_id = gpu_id,
             num_worlds = num_envs,
             debug_compile = debug_compile,

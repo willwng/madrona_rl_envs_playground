@@ -1,6 +1,6 @@
 #pragma once
 
-#include <madrona/taskgraph.hpp>
+#include <madrona/taskgraph_builder.hpp>
 #include <madrona/math.hpp>
 #include <madrona/custom_context.hpp>
 #include <madrona/components.hpp>
@@ -31,135 +31,145 @@
 
 namespace Hanabi {
 
-    struct RendererInitStub {};
+  // struct RendererInitStub {};
 
-    // 3D Position & Quaternion Rotation
-    // These classes are defined in madrona/components.hpp
+  class Engine;
 
-    class Engine;
+  enum class ExportID : uint32_t {
+    WorldReset,
+    ActiveAgent,
+    Action,
+    Observation,
+    ActionMask,
+    Reward,
+    WorldID,
+    AgentID,
+    State,
+    NumExports,
+  };
 
-    // singletons
+  // singletons
     
-    struct WorldReset {
-        int32_t resetNow;
-    };
+  struct WorldReset {
+    int32_t resetNow;
+  };
 
-    struct Deck {
-        uint8_t cards[MAX_NUM_CARDS];
-        uint8_t size;
-        // to reset, set cards[i], size=max_size
-        // to pick next card, randomly swap some value from cards[0 to size-1]
-        // with cards[size-1], and pick out that value
-        uint8_t num_rem_cards[RANK * COLOR];
+  struct Deck {
+    uint8_t cards[MAX_NUM_CARDS];
+    uint8_t size;
+    // to reset, set cards[i], size=max_size
+    // to pick next card, randomly swap some value from cards[0 to size-1]
+    // with cards[size-1], and pick out that value
+    uint8_t num_rem_cards[RANK * COLOR];
         
-        uint8_t discard_counts[RANK * COLOR];
-        // uint8_t discard_size;
-        uint8_t fireworks[COLOR];
-        uint8_t information_tokens;
-        uint8_t life_tokens;
+    uint8_t discard_counts[RANK * COLOR];
+    // uint8_t discard_size;
+    uint8_t fireworks[COLOR];
+    uint8_t information_tokens;
+    uint8_t life_tokens;
 
-        uint8_t cur_player;
+    uint8_t cur_player;
 
-        int8_t turns_to_play;
-        int8_t score;
-        int8_t new_rew;
-    };
+    int8_t turns_to_play;
+    int8_t score;
+    int8_t new_rew;
+  };
 
-        enum MoveType { kDiscard, kPlay, kRevealColor, kRevealRank, kInvalid };
+  enum MoveType { kDiscard, kPlay, kRevealColor, kRevealRank, kInvalid };
 
-    struct LastMove {
-        MoveType move;
-        int8_t player = -1;
-        int8_t target_player = -1; // in absolute space
-        int8_t card_index;
-        bool scored = false;
-        bool information_token = false;
-        int8_t color = -1;
-        int8_t rank = -1;
-        uint8_t reveal_bitmask = 0;
-        uint8_t newly_revealed_bitmask = 0;
-        int8_t deal_to_player = -1;
-    };
+  struct LastMove {
+    MoveType move;
+    int8_t player = -1;
+    int8_t target_player = -1; // in absolute space
+    int8_t card_index;
+    bool scored = false;
+    bool information_token = false;
+    int8_t color = -1;
+    int8_t rank = -1;
+    uint8_t reveal_bitmask = 0;
+    uint8_t newly_revealed_bitmask = 0;
+    int8_t deal_to_player = -1;
+  };
 
-    // per-agent
+  // per-agent
 
-    struct ActiveAgent {
-        int32_t isActive;
-    };
+  struct ActiveAgent {
+    int32_t isActive;
+  };
 
-    struct Action {
-        int32_t choice; // many discrete choices
-    };
+  struct Action {
+    int32_t choice; // many discrete choices
+  };
     
-    struct Move {
-        MoveType type;
-        int8_t card_index;
-        int8_t target_offset;
-        int8_t color;
-        int8_t rank;
-    };
+  struct Move {
+    MoveType type;
+    int8_t card_index;
+    int8_t target_offset;
+    int8_t color;
+    int8_t rank;
+  };
 
-    struct Hand {
-        uint8_t cards[HAND_SIZE];
-        uint64_t card_plausible[HAND_SIZE];
-        uint8_t size;
-        int8_t known_color[HAND_SIZE];
-        int8_t known_rank[HAND_SIZE];
-        // card to index: color * num_ranks + rank
-    };
+  struct Hand {
+    uint8_t cards[HAND_SIZE];
+    uint64_t card_plausible[HAND_SIZE];
+    uint8_t size;
+    int8_t known_color[HAND_SIZE];
+    int8_t known_rank[HAND_SIZE];
+    // card to index: color * num_ranks + rank
+  };
 
-    struct Observation {
-        uint8_t bitvec[OBS_SIZE];
-    };
+  struct Observation {
+    uint8_t bitvec[OBS_SIZE];
+  };
 
-    struct State {
-        uint8_t bitvec[STATE_SIZE];
-    };
+  struct State {
+    uint8_t bitvec[STATE_SIZE];
+  };
 
-    struct AgentID {
-        int32_t id;
-    };
+  struct AgentID {
+    int32_t id;
+  };
     
-    struct ActionMask {
-        int32_t isValid[NUM_MOVES];
-    };
+  struct ActionMask {
+    int32_t isValid[NUM_MOVES];
+  };
 
-    struct Reward {
-        float rew;
-    };
+  struct Reward {
+    float rew;
+  };
 
-    // struct Agent : public madrona::Archetype<Action, Observation, Location, AgentID, ActionMask, ActiveAgent, Reward> {};
+  // struct Agent : public madrona::Archetype<Action, Observation, Location, AgentID, ActionMask, ActiveAgent, Reward> {};
 
-    struct Agent : public madrona::Archetype<Action, Observation, State, AgentID, ActionMask, ActiveAgent, Reward,
-                                             Move, Hand> {};
+  struct Agent : public madrona::Archetype<Action, Observation, State, AgentID, ActionMask, ActiveAgent, Reward,
+					   Move, Hand> {};
 
-    struct Config {
-        uint32_t numPlayers;
-    };
+  struct Config {
+    uint32_t numPlayers;
+  };
 
-    struct Sim : public madrona::WorldBase {
-        static void registerTypes(madrona::ECSRegistry &registry, const Config &cfg);
+  struct Sim : public madrona::WorldBase {
+    static void registerTypes(madrona::ECSRegistry &registry, const Config &cfg);
 
-        static void setupTasks(madrona::TaskGraph::Builder &builder, const Config &cfg);
+    static void setupTasks(madrona::TaskGraphBuilder &builder, const Config &cfg);
 
-        Sim(Engine &ctx, const Config& cfg, const WorldInit &init);
+    Sim(Engine &ctx, const Config& cfg, const WorldInit &init);
 
-        EpisodeManager *episodeMgr;
-        RNG rng;
+    EpisodeManager *episodeMgr;
+    RNG rng;
 
-        uint32_t colors;
-        uint32_t ranks;
-        uint32_t players;
-        uint32_t max_information_tokens;
-        uint32_t max_life_tokens;
+    uint32_t colors;
+    uint32_t ranks;
+    uint32_t players;
+    uint32_t max_information_tokens;
+    uint32_t max_life_tokens;
 
-        uint32_t hand_size;
+    uint32_t hand_size;
 
-        madrona::Entity *agents;
-    };
+    madrona::Entity *agents;
+  };
 
-    class Engine : public ::madrona::CustomContext<Engine, Sim> {
-        using CustomContext::CustomContext;
-    };
+  class Engine : public ::madrona::CustomContext<Engine, Sim> {
+    using CustomContext::CustomContext;
+  };
 
 }

@@ -4,7 +4,6 @@ from pantheonrl_extension.multiagentenv import MultiAgentEnv
 from hanabi_learning_environment.rl_env import HanabiEnv
 from pantheonrl_extension.vectorenv import MadronaEnv
 
-import build.madrona_python as madrona_python
 import build.madrona_hanabi_example_python as hanabi_python
 
 import numpy as np
@@ -79,7 +78,7 @@ class HanabiMadrona(MadronaEnv):
 
         # sim = None
         sim = hanabi_python.HanabiSimulator(
-            exec_mode = hanabi_python.ExecMode.CPU if use_cpu else hanabi_python.ExecMode.CUDA,
+            exec_mode = hanabi_python.madrona.ExecMode.CPU if use_cpu else hanabi_python.madrona.ExecMode.CUDA,
             gpu_id = gpu_id,
             num_worlds = num_envs,
             colors = config["colors"],

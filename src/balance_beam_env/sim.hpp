@@ -1,6 +1,6 @@
 #pragma once
 
-#include <madrona/taskgraph.hpp>
+#include <madrona/taskgraph_builder.hpp>
 #include <madrona/math.hpp>
 #include <madrona/custom_context.hpp>
 #include <madrona/components.hpp>
@@ -13,68 +13,80 @@
 
 namespace Balance {
 
-    struct RendererInitStub {};
-    struct Config {};
+  // struct RendererInitStub {};
+  struct Config {};
 
-    // 3D Position & Quaternion Rotation
-    // These classes are defined in madrona/components.hpp
+  // 3D Position & Quaternion Rotation
+  // These classes are defined in madrona/components.hpp
 
-    class Engine;
+  class Engine;
 
-    struct WorldReset {
-        int32_t resetNow;
-    };
+  enum class ExportID : uint32_t {
+    WorldReset,
+    ActiveAgent,
+    Action,
+    Observation,
+    ActionMask,
+    Reward,
+    WorldID,
+    AgentID,
+    NumExports,
+  };
 
-    struct WorldTime {
-        int32_t time;
-    };
+  struct WorldReset {
+    int32_t resetNow;
+  };
 
-    struct ActiveAgent {
-        int32_t isActive;
-    };
+  struct WorldTime {
+    int32_t time;
+  };
 
-    struct Action {
-        int32_t choice; // 4 discrete choices
-    };
+  struct ActiveAgent {
+    int32_t isActive;
+  };
 
-    struct Observation {
-        int32_t x[2 * TIME];
-        int32_t time;
-    };
+  struct Action {
+    int32_t choice; // 4 discrete choices
+  };
 
-    struct Location {
-        int32_t x;
-    };
+  struct Observation {
+    int32_t x[2 * TIME];
+    int32_t time;
+  };
 
-    struct AgentID {
-        int32_t id;
-    };
+  struct Location {
+    int32_t x;
+  };
+
+  struct AgentID {
+    int32_t id;
+  };
     
-    struct ActionMask {
-        int32_t isValid[NUM_MOVES];
-    };
+  struct ActionMask {
+    int32_t isValid[NUM_MOVES];
+  };
 
-    struct Reward {
-        float rew;
-    };
+  struct Reward {
+    float rew;
+  };
 
-    struct Agent : public madrona::Archetype<Action, Observation, Location, AgentID, ActionMask, ActiveAgent, Reward> {};
+  struct Agent : public madrona::Archetype<Action, Observation, Location, AgentID, ActionMask, ActiveAgent, Reward> {};
 
-    struct Sim : public madrona::WorldBase {
-        static void registerTypes(madrona::ECSRegistry &registry, const Config &cfg);
+  struct Sim : public madrona::WorldBase {
+    static void registerTypes(madrona::ECSRegistry &registry, const Config &cfg);
 
-        static void setupTasks(madrona::TaskGraph::Builder &builder, const Config &cfg);
+    static void setupTasks(madrona::TaskGraphBuilder &builder, const Config &cfg);
 
-        Sim(Engine &ctx, const Config& cfg, const WorldInit &init);
+    Sim(Engine &ctx, const Config& cfg, const WorldInit &init);
 
-        EpisodeManager *episodeMgr;
-        RNG rng;
+    EpisodeManager *episodeMgr;
+    RNG rng;
 
-        madrona::Entity *agents;
-    };
+    madrona::Entity *agents;
+  };
 
-    class Engine : public ::madrona::CustomContext<Engine, Sim> {
-        using CustomContext::CustomContext;
-    };
+  class Engine : public ::madrona::CustomContext<Engine, Sim> {
+    using CustomContext::CustomContext;
+  };
 
 }

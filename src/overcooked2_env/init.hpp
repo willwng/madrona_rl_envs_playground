@@ -1,13 +1,15 @@
 #pragma once
 
+#include <madrona/sync.hpp>
+
 namespace Simplecooked {
 
-struct EpisodeManager {
-    std::atomic_uint32_t curEpisode;
-};
+  struct EpisodeManager {
+    madrona::AtomicU32 curEpisode;
+  };
 
-struct WorldInit {
+  struct WorldInit {
     EpisodeManager *episodeMgr;
-};
+  };
 
 }

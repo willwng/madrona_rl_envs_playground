@@ -12,7 +12,6 @@ from overcooked_ai_py.mdp.actions import Action
 from overcooked_ai_py.mdp.overcooked_mdp import OvercookedGridworld
 from overcooked_ai_py.mdp.overcooked_env import OvercookedEnv
 
-import build.madrona_python as madrona_python
 import build.madrona_overcooked_example_python as overcooked_python
 
 
@@ -29,7 +28,7 @@ class OvercookedMadrona(VectorMultiAgentEnv):
         self.horizon = horizon
 
         sim = overcooked_python.OvercookedSimulator(
-            exec_mode = overcooked_python.ExecMode.CPU if use_cpu else overcooked_python.ExecMode.CUDA,
+            exec_mode = overcooked_python.madrona.ExecMode.CPU if use_cpu else overcooked_python.madrona.ExecMode.CUDA,
             gpu_id = gpu_id,
             num_worlds = num_envs,
             debug_compile = debug_compile,

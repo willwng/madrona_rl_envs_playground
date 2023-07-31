@@ -23,8 +23,8 @@ using namespace madrona::math;
 namespace Cartpole {
 
     
-    void Sim::registerTypes(ECSRegistry &registry, const Config &)
-{
+  void Sim::registerTypes(ECSRegistry &registry, const Config &)
+  {
     base::registerTypes(registry);
 
     // registry.registerSingleton<WorldReset>();
@@ -34,23 +34,22 @@ namespace Cartpole {
     registry.registerComponent<State>();
     registry.registerComponent<Reward>();
 
-    registry.registerFixedSizeArchetype<Agent>(1);
+    registry.registerArchetype<Agent>();
 
     // Export tensors for pytorch
     // registry.exportSingleton<WorldReset>(0);
-    registry.exportColumn<Agent, WorldReset>(0);
-    registry.exportColumn<Agent, Action>(1);
-    registry.exportColumn<Agent, State>(2);
-    registry.exportColumn<Agent, Reward>(3);
-    registry.exportColumn<Agent, WorldID>(4);
-}
+    registry.exportColumn<Agent, WorldReset>((uint32_t)ExportID::WorldReset);
+    registry.exportColumn<Agent, Action>((uint32_t)ExportID::Action);
+    registry.exportColumn<Agent, State>((uint32_t)ExportID::State);
+    registry.exportColumn<Agent, Reward>((uint32_t)ExportID::Reward);
+    registry.exportColumn<Agent, WorldID>((uint32_t)ExportID::WorldID);
+  }
 
-static void resetWorld(Engine &ctx)
-{
+  static void resetWorld(Engine &ctx)
+  {
     // Update the RNG seed for a new episode
     EpisodeManager &episode_mgr = *ctx.data().episodeMgr;
-    uint32_t episode_idx =
-        episode_mgr.curEpisode.fetch_add(1, std::memory_order_relaxed);
+    uint32_t episode_idx = episode_mgr.curEpisode.fetch_add_relaxed(1);
     ctx.data().rng = RNG::make(episode_idx);
 
     const math::Vector2 bounds { -0.05f, 0.05f };
@@ -58,16 +57,16 @@ static void resetWorld(Engine &ctx)
 
     Entity agent = ctx.data().agents[0];
     
-    ctx.getUnsafe<State>(agent) = {
-        bounds.x + ctx.data().rng.rand() * bounds_diff,
-        bounds.x + ctx.data().rng.rand() * bounds_diff,
-        bounds.x + ctx.data().rng.rand() * bounds_diff,
-        bounds.x + ctx.data().rng.rand() * bounds_diff
+    ctx.get<State>(agent) = {
+      bounds.x + ctx.data().rng.rand() * bounds_diff,
+      bounds.x + ctx.data().rng.rand() * bounds_diff,
+      bounds.x + ctx.data().rng.rand() * bounds_diff,
+      bounds.x + ctx.data().rng.rand() * bounds_diff
     };
-}
+  }
 
-    inline void actionSystem(Engine &, Action &action, State &state, Reward &reward)
-{
+  inline void actionSystem(Engine &, Action &action, State &state, Reward &reward)
+  {
     float force = (action.choice == 1 ? FORCE_MAG : -FORCE_MAG);
     float costheta = cosf(state.theta);
     float sintheta = sinf(state.theta);
@@ -82,24 +81,24 @@ static void resetWorld(Engine &ctx)
     state.theta_dot = state.theta_dot + TAU * thetaacc;
 
     reward.rew = 1.f; // just need to stay alive
-}
+  }
 
-    inline void checkDone(Engine &ctx, WorldReset &reset, State &state)
-{
+  inline void checkDone(Engine &ctx, WorldReset &reset, State &state)
+  {
     float x = state.x;
     float theta = state.theta;
 
     reset.resetNow = x < -X_THRESHOLD || x > X_THRESHOLD || theta < -THETA_THRESHOLD_RADIANS || theta > THETA_THRESHOLD_RADIANS;
 
     if (reset.resetNow) {
-        resetWorld(ctx);
+      resetWorld(ctx);
     }
-}
+  }
 
     
 
-    void Sim::setupTasks(TaskGraph::Builder &builder, const Config &)
-{
+  void Sim::setupTasks(TaskGraphBuilder &builder, const Config &)
+  {
     // auto reset_sys =
     //     builder.addToGraph<ParallelForNode<Engine, resetSystem, WorldReset>>({});
 
@@ -110,7 +109,7 @@ static void resetWorld(Engine &ctx)
     //     builder.addToGraph<ResetTmpAllocNode>({sort_sys});
     
     auto action_sys = builder.addToGraph<ParallelForNode<Engine, actionSystem,
-                                                     Action, State, Reward>>({});
+							 Action, State, Reward>>({});
 
     auto terminate_sys = builder.addToGraph<ParallelForNode<Engine, checkDone, WorldReset, State>>({action_sys});
 
@@ -118,32 +117,32 @@ static void resetWorld(Engine &ctx)
     // (void) action_sys;
 
     // printf("Setup done\n");
-}
+  }
 
 
-    Sim::Sim(Engine &ctx, const Config&, const WorldInit &init)
+  Sim::Sim(Engine &ctx, const Config&, const WorldInit &init)
     : WorldBase(ctx),
       episodeMgr(init.episodeMgr)
-{
+  {
     // Make a buffer that will last the duration of simulation for storing
     // agent entity IDs
     agents = (Entity *)rawAlloc(sizeof(Entity));
 
-    agents[0] = ctx.makeEntityNow<Agent>();
+    agents[0] = ctx.makeEntity<Agent>();
 
-    ctx.getUnsafe<Action>(agents[0]).choice = 0;
-    ctx.getUnsafe<State>(agents[0]).x = 0.f;
-    ctx.getUnsafe<State>(agents[0]).theta = 0.f;
-    ctx.getUnsafe<State>(agents[0]).x_dot = 0.f;
-    ctx.getUnsafe<State>(agents[0]).theta_dot = 0.f;
-    ctx.getUnsafe<Reward>(agents[0]).rew = 0.f;
+    ctx.get<Action>(agents[0]).choice = 0;
+    ctx.get<State>(agents[0]).x = 0.f;
+    ctx.get<State>(agents[0]).theta = 0.f;
+    ctx.get<State>(agents[0]).x_dot = 0.f;
+    ctx.get<State>(agents[0]).theta_dot = 0.f;
+    ctx.get<Reward>(agents[0]).rew = 0.f;
     
     // Initial reset
     resetWorld(ctx);
     // ctx.getSingleton<WorldReset>().resetNow = false;
-    ctx.getUnsafe<WorldReset>(agents[0]).resetNow = false;
-}
+    ctx.get<WorldReset>(agents[0]).resetNow = false;
+  }
 
-    MADRONA_BUILD_MWGPU_ENTRY(Engine, Sim, Config, WorldInit);
+  MADRONA_BUILD_MWGPU_ENTRY(Engine, Sim, Config, WorldInit);
 
 }

@@ -29,7 +29,7 @@ if __name__ == "__main__":
     parser.add_argument("--validation", default=False, nargs="?", const=True,
                         help="if toggled, validate correctness")
     parser.add_argument("--debug-compile", default=False, nargs="?", const=True,
-                        help="if toggled, validate correctness")
+                        help="if toggled, use debugging compilation (slower)")
     args = parser.parse_args()
 
     if args.use_baseline:
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     for _ in range(5):
         action = torch.randint_like(actions, high=2)
 
-        next_state, reward, next_done, _ = env.step(action if not args.use_baseline else action[:, 0].cpu().numpy())
+        next_state, reward, next_done, _ = env.step(action if not args.use_baseline else action.cpu().numpy())
 
         if args.use_baseline:
             next_done = torch.tensor(next_done)
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         action = torch.randint_like(actions, high=2)
 
         time_stamps[iter * 2] = time.time()
-        next_state, reward, next_done, _ = env.step(action if not args.use_baseline else action[:, 0].cpu().numpy())
+        next_state, reward, next_done, _ = env.step(action if not args.use_baseline else action.cpu().numpy())
         time_stamps[iter * 2 + 1] = time.time()
 
         if args.use_baseline:

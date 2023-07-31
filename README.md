@@ -38,70 +38,21 @@ cd ..
 pip install -e .
 
 pip install -e overcooked_ai
+pip install -e oldercooked_ai
 ```
 
-NOTE: For cmake, you make need to specify the cuda tookit directory as follows:
+NOTE: For cmake, you may need to specify the cuda tookit directory as follows:
 
 ```
 cmake -D CUDAToolkit_ROOT=/usr/local/cuda-12.0 ..
 ```
 
-## Running scripts
+## Environments
 
-Before running any scripts, ensure that the madrona conda environment is active.
+This repo contains implementations of various RL environments. Please read the respective README files to test the installation.
 
-For cartpole:
-
-```
-cd scripts
-
-# simulating the environment (madrona)
-python cartpole_example.py --num-envs 32
-
-# learning with madrona
-python cartpole_train_torch.py --num-envs 32 --madrona True --num-steps 200 --total-timesteps 160000
-
-# baseline (numpy)
-python cartpole_train_numpy.py --num-envs 32 --madrona False --num-steps 200 --total-timesteps 160000
-```
-
-For balance beam:
-
-```
-cd scripts
-
-# simulating the environment (madrona)
-python balance_example.py --num-envs 32
-
-# learning with madrona
-python balance_train.py --num-envs 1000 --num-steps 10 --total-timesteps 40000000 --update-epochs 4
-```
-
-For overcooked:
-
-```
-cd scripts
-
-# simulating the environment (madrona)
-# choose between cramped_room, asymmetric_advantages_tomato, bonus_order_test (manually edit overcooked_example to add more layouts)
-python overcooked_example.py --num-envs 32 --layout cramped_room
-```
-
-For hanabi:
-
-```
-cd scripts
-
-# learning with madrona
-MADRONA_MWGPU_KERNEL_CACHE=/tmp/hancache python hanabi_train.py --num-envs 1000 --num-steps 100 --num-updates 1000 --learning-rate 7e-4 --update-epochs 15 --num-minibatches 1 --madrona True --ent-coef 0.015 --anneal-lr False --hanabi-type full
-```
-
-Hanabi training ablations:
-
-```
-cd scripts
-
-# Change list on line 5 to have the desired number of environments; each run will last 30 mins
-./hanabi_env_train.sh
-```
-
+- [Balance Beam](src/balance_beam_env/README.org), a very simple 2-player cooperative game. This is a good starting point if you want to understand how to implement a simple environment in Madrona.
+- [Cartpole](src/cartple_env/README.org), the classic single-player RL environment.
+- [Hanabi](src/hanabi_env/README.org), a standard environment for cooperative multi-agent RL with partial observability.
+- [Overcooked](src/overcooked_env/README.org), a 2D grid-based environment for cooperative multi-agent RL based on the Overcooked game.
+- [Overcooked (JS-compatible)](src/overcooked_env/README.org), an older implementation of Overcooked that is compatible with a javascript interface. This is the version used in the Colab notebook.

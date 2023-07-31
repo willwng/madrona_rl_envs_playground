@@ -1,5 +1,4 @@
 from gym.spaces import Discrete, MultiDiscrete
-import build.madrona_python as madrona_python
 import build.madrona_balance_example_python as balance_python
 
 from pantheonrl_extension.multiagentenv import MultiAgentEnv
@@ -23,7 +22,7 @@ class BalanceMadronaTorch(MadronaEnv):
 
     def __init__(self, num_envs, gpu_id, debug_compile=True, use_cpu=False, use_env_cpu=False):
         sim = balance_python.BalanceBeamSimulator(
-            exec_mode = balance_python.ExecMode.CPU if use_cpu else balance_python.ExecMode.CUDA,
+            exec_mode = balance_python.madrona.ExecMode.CPU if use_cpu else balance_python.madrona.ExecMode.CUDA,
             gpu_id = gpu_id,
             num_worlds = num_envs,
             debug_compile = debug_compile,
@@ -173,7 +172,7 @@ def validate_step(states, actions, dones, nextstates, rewards, verbose=True):
     for i in range(numenvs):
         STATIC_ENV.state[0] = states[0][i][0] - BUFFER
         STATIC_ENV.state[1] = states[1][i][0] - BUFFER
-        STATIC_ENV.current_time = states[0][i][-1]
+        STATIC_ENV.current_time = int(states[0][i][-1])
         STATIC_ENV.ego_state = unview(states[0][i][:TIME], STATIC_ENV.current_time)
         STATIC_ENV.alt_state = unview(states[1][i][:TIME], STATIC_ENV.current_time)
         _, truenext, truerewards, truedone, _ = STATIC_ENV.n_step(actions[:,i])

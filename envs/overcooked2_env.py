@@ -6,14 +6,13 @@ from pantheonrl_extension.multiagentenv import MultiAgentEnv
 from pantheonrl_extension.vectorenv import VectorMultiAgentEnv
 from pantheonrl_extension.vectorobservation import VectorObservation
 
-from overcooked_ai_py.data.layouts import read_layout_dict
-from overcooked_ai_py.utils import load_dict_from_file
+from oldercooked_ai_py.data.layouts import read_layout_dict
+from oldercooked_ai_py.utils import load_dict_from_file
 
-from overcooked_ai_py.mdp.actions import Action
-from overcooked_ai_py.mdp.overcooked_mdp import OvercookedGridworld
-from overcooked_ai_py.mdp.overcooked_env import OvercookedEnv
+from oldercooked_ai_py.mdp.actions import Action
+from oldercooked_ai_py.mdp.overcooked_mdp import OvercookedGridworld
+from oldercooked_ai_py.mdp.overcooked_env import OvercookedEnv
 
-import build.madrona_python as madrona_python
 import build.madrona_simplecooked_example_python as overcooked_python
 
 
@@ -30,7 +29,7 @@ class OvercookedMadrona(VectorMultiAgentEnv):
         self.horizon = horizon
 
         sim = overcooked_python.SimplecookedSimulator(
-            exec_mode = overcooked_python.ExecMode.CPU if use_cpu else overcooked_python.ExecMode.CUDA,
+            exec_mode = overcooked_python.madrona.ExecMode.CPU if use_cpu else overcooked_python.madrona.ExecMode.CUDA,
             gpu_id = gpu_id,
             num_worlds = num_envs,
             debug_compile = debug_compile,

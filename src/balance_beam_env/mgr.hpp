@@ -2,22 +2,19 @@
 
 #include <memory>
 
-#include <madrona/python.hpp>
+#include <madrona/py/utils.hpp>
+#include <madrona/exec_mode.hpp>
 
 namespace Balance {
 
-class Manager {
-public:
-    enum class ExecMode {
-        CPU,
-        CUDA,
-    };
+  class Manager {
+  public:
     
     struct Config {
-        ExecMode execMode;
-        int gpuID;
-        uint32_t numWorlds;
-        bool debugCompile;
+      madrona::ExecMode execMode;
+      int gpuID;
+      uint32_t numWorlds;
+      bool debugCompile;
     };
 
     MADRONA_IMPORT Manager(const Config &cfg);
@@ -36,15 +33,15 @@ public:
     MADRONA_IMPORT madrona::py::Tensor agentIDTensor() const;
 
 
-private:
+  private:
     struct Impl;
     struct CPUImpl;
 
-    #ifdef MADRONA_CUDA_SUPPORT
+#ifdef MADRONA_CUDA_SUPPORT
     struct GPUImpl;
-    #endif
+#endif
 
     std::unique_ptr<Impl> impl_;
-};
+  };
 
 }

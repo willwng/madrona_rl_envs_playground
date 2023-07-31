@@ -1,6 +1,6 @@
-from envs.overcooked_env import validate_step, init_validation, SimplifiedOvercooked, get_base_layout_params, OvercookedMadrona
+from envs.overcooked_env import validate_step, init_validation, PantheonOvercooked, SimplifiedOvercooked, get_base_layout_params, OvercookedMadrona
 
-from pantheonrl_extension.asyncvectorenv import AsyncVectorEnv
+from pantheonrl_extension.vectorenv import SyncVectorEnv
 from pantheonrl_extension.vectorobservation import VectorObservation
 from pantheonrl_extension.vectorenv import SyncVectorEnv
 
@@ -32,6 +32,8 @@ if __name__ == "__main__":
             help="if toggled, use cpu for env outputs")
     parser.add_argument("--use-baseline", default=False, nargs="?", const=True,
                         help="if toggled, use baseline version")
+    parser.add_argument("--use-simplified", default=False, nargs="?", const=True,
+                        help="if toggled, use simplified python version")
 
     parser.add_argument("--validation", default=False, nargs="?", const=True,
                         help="if toggled, validate correctness")
@@ -48,7 +50,12 @@ if __name__ == "__main__":
     print(get_base_layout_params(args.layout, 400, max_num_players=args.num_players))
 
     if args.use_baseline:
-        env = AsyncVectorEnv(
+        env = SyncVectorEnv(
+                [lambda: PantheonOvercooked(args.layout) for _ in range(args.num_envs)],
+                device = torch.device('cpu') if args.use_env_cpu else None
+            )
+    elif args.use_simplified:
+        env = SyncVectorEnv(
                 [lambda: SimplifiedOvercooked(args.layout, num_players=args.num_players) for _ in range(args.num_envs)],
                 device = torch.device('cpu') if args.use_env_cpu else None
             )

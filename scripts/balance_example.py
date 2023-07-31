@@ -12,39 +12,39 @@ from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--num-envs", type=int, default=32,
-        help="the number of parallel game environments")
+                    help="the number of parallel game environments")
 parser.add_argument("--num-steps", type=int, default=1000,
-        help="the number of steps to run in each environment per policy rollout")
-parser.add_argument("--verbose", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
-        help="if toggled, enable assertions to validate correctness")
-parser.add_argument("--asserts", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
-        help="if toggled, enable assertions to validate correctness")
+                    help="the number of steps to run in each environment per policy rollout")
+parser.add_argument("--verbose", default=False, nargs="?", const=True,
+                    help="if toggled, enable assertions to validate correctness")
+parser.add_argument("--asserts", default=False, nargs="?", const=True,
+                    help="if toggled, enable assertions to validate correctness")
 
-parser.add_argument("--use-cpu", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
-        help="if toggled, use cpu version of madrona")
-parser.add_argument("--use-env-cpu", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
-        help="if toggled, use cpu for env outputs")
-parser.add_argument("--use-baseline", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
-        help="if toggled, use baseline version")
+parser.add_argument("--use-cpu", default=False, nargs="?", const=True,
+                    help="if toggled, use cpu version of madrona")
+parser.add_argument("--use-env-cpu", default=False, nargs="?", const=True,
+                    help="if toggled, use cpu for env outputs")
+parser.add_argument("--use-baseline", default=False, nargs="?", const=True,
+                    help="if toggled, use baseline version")
 
-parser.add_argument("--validation", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
-        help="if toggled, validate correctness")
-parser.add_argument("--debug-compile", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
-        help="if toggled, use debug compilation mode")
+parser.add_argument("--validation", default=False, nargs="?", const=True,
+                    help="if toggled, validate correctness")
+parser.add_argument("--debug-compile", default=False, nargs="?", const=True,
+                    help="if toggled, use debug compilation mode")
 args = parser.parse_args()
 
 if args.use_baseline:
     env = SyncVectorEnv(
-            [lambda: PantheonLine() for _ in range(args.num_envs)],
-            device = torch.device('cpu') if args.use_env_cpu else None
-        )
+        [lambda: PantheonLine() for _ in range(args.num_envs)],
+        device = torch.device('cpu') if args.use_env_cpu else None
+    )
 else:
     env = BalanceMadronaTorch(args.num_envs, 0, args.debug_compile, args.use_cpu, args.use_env_cpu)
 
 old_state = env.n_reset()
 actions = torch.zeros((2, args.num_envs, 1), dtype=int).to(device=env.device)
 num_errors = 0
-    
+
 # warp up
 for _ in range(5):
     for i in range(2):
