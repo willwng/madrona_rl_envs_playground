@@ -52,7 +52,7 @@ cmake -D CUDAToolkit_ROOT=/usr/local/cuda-12.0 ..
 This repo contains implementations of various RL environments. Please read the respective README files to test the installation.
 
 - [Balance Beam](src/balance_beam_env/README.org), a very simple 2-player cooperative game. This is a good starting point if you want to understand how to implement a simple environment in Madrona.
-- [Cartpole](src/cartple_env/README.org), the classic single-player RL environment.
+- [Cartpole](src/cartpole_env/README.org), the classic single-player RL environment.
 - [Hanabi](src/hanabi_env/README.org), a standard environment for cooperative multi-agent RL with partial observability.
 - [Overcooked](src/overcooked_env/README.org), a 2D grid-based environment for cooperative multi-agent RL based on the Overcooked game.
-- [Overcooked (JS-compatible)](src/overcooked_env/README.org), an older implementation of Overcooked that is compatible with a javascript interface. This is the version used in the Colab notebook.
+- [Overcooked (JS-compatible)](src/overcooked2_env/README.org), an older implementation of Overcooked that is compatible with a javascript interface. This is the version used in the Colab notebook.
