@@ -1,4 +1,4 @@
-from envs.overcooked_env import validate_step, init_validation, PantheonOvercooked, SimplifiedOvercooked, get_base_layout_params, OvercookedMadrona
+from envs.overcooked_env import validate_step, init_validation, PantheonOvercooked, SimplifiedOvercooked, get_base_layout_params, OvercookedMadrona, OvercookedTaichi
 
 from pantheonrl_extension.vectorenv import SyncVectorEnv
 from pantheonrl_extension.vectorobservation import VectorObservation
@@ -34,6 +34,8 @@ if __name__ == "__main__":
                         help="if toggled, use baseline version")
     parser.add_argument("--use-simplified", default=False, nargs="?", const=True,
                         help="if toggled, use simplified python version")
+    parser.add_argument("--use-taichi", default=False, nargs="?", const=True,
+                        help="if toggled, use taichi version")
 
     parser.add_argument("--validation", default=False, nargs="?", const=True,
                         help="if toggled, validate correctness")
@@ -59,6 +61,8 @@ if __name__ == "__main__":
                 [lambda: SimplifiedOvercooked(args.layout, num_players=args.num_players) for _ in range(args.num_envs)],
                 device = torch.device('cpu') if args.use_env_cpu else None
             )
+    elif args.use_taichi:
+        env = OvercookedTaichi(args.layout, args.num_envs, args.use_env_cpu, num_players=args.num_players)
     else:
         env = OvercookedMadrona(args.layout, args.num_envs, 0, args.debug_compile, args.use_cpu, args.use_env_cpu, num_players=args.num_players)
     old_state = env.n_reset()
@@ -74,6 +78,8 @@ if __name__ == "__main__":
             truevalid = np.array([orig[0] for orig in orig_obs_valid[i]])
             if not np.all(np.abs(truevalid - old_state_numpy[:, i]) == 0):
                 print(np.abs(truevalid - old_state_numpy[:, i]).nonzero())
+                # print(truevalid)
+                # print(old_state_numpy[:, i])
                 print("madrona:", old_state_numpy[:, i][np.abs(truevalid - old_state_numpy[:, i]).nonzero()])
                 print("numpy:", truevalid[np.abs(truevalid - old_state_numpy[:, i]).nonzero()])
                 assert(not args.asserts)
@@ -85,7 +91,7 @@ if __name__ == "__main__":
 
         if args.validation and not validate_step(old_state, actions, next_done, next_state, reward, verbose=args.verbose):
             num_errors += 1
-            print("ASERTION FAILED", i)
+            print("ASSERTION FAILED", i)
             assert(not args.asserts)
 
         old_state = [VectorObservation(s.active.clone(), s.obs.clone(), s.state.clone(), s.action_mask) for s in next_state]

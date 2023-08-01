@@ -119,6 +119,106 @@ class OvercookedMadrona(VectorMultiAgentEnv):
         pass
 
 
+class OvercookedTaichi(VectorMultiAgentEnv):
+
+    def __init__(self, layout_name, num_envs, use_env_cpu=False, ego_agent_idx=0, horizon=400, num_players=None):
+        from .overcooked_taichi import TaichiSimulator
+
+        self.layout_name = layout_name
+        self.base_layout_params = get_base_layout_params(layout_name, horizon, max_num_players=num_players)
+        self.width = self.base_layout_params['width']
+        self.height = self.base_layout_params['height']
+        self.num_players = self.base_layout_params['num_players']
+        self.size = self.width * self.height
+
+        self.horizon = horizon
+
+        sim = TaichiSimulator(
+            num_worlds = num_envs,
+            **self.base_layout_params
+        )
+
+        # sim_device = torch.device('cpu') if use_cpu or not torch.cuda.is_available() else torch.device('cuda')
+        
+        full_obs_size = self.width * self.height * (5 * self.num_players + 16)
+
+        self.sim = sim
+
+        # self.static_dones = self.sim.done_tensor().to_torch()
+        # self.static_active_agents = self.sim.active_agent_tensor().to_torch().to(torch.bool)
+        
+        # self.static_actions = self.sim.action_tensor().to_torch()
+        # self.static_observations = self.sim.observation_tensor().to_torch()
+        # self.static_rewards = self.sim.reward_tensor().to_torch()
+        # self.static_worldID = self.sim.world_id_tensor().to_torch().to(torch.long)
+        # self.static_agentID = self.sim.agent_id_tensor().to_torch().to(torch.long)
+        # self.static_locationWorldID = self.sim.location_world_id_tensor().to_torch().to(torch.long)
+        # self.static_locationID = self.sim.location_id_tensor().to_torch().to(torch.long)
+        
+        # self.obs_size = full_obs_size
+        # self.state_size = full_obs_size
+        
+        # self.static_scattered_active_agents = self.static_active_agents.detach().clone()
+        # self.static_scattered_rewards = self.static_rewards.detach().clone()
+
+        # self.static_scattered_active_agents[self.static_agentID, self.static_worldID] = self.static_active_agents
+
+        # self.static_scattered_rewards[self.static_agentID, self.static_worldID] = self.static_rewards
+
+        if use_env_cpu:
+            env_device = torch.device('cpu')
+        else:
+            env_device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+        super().__init__(num_envs, device=env_device, n_players=self.num_players)
+
+        # self.static_scattered_observations = torch.empty((self.height * self.width * self.num_players, self.num_envs, 5 * self.num_players + 16), dtype=torch.int8, device=sim_device)
+        # self.static_scattered_observations[self.static_locationID, self.static_locationWorldID, :] = self.static_observations[:, :, :5 * self.num_players + 16]
+
+        self.infos = [{}] * self.num_envs
+        
+        self.ego_ind = ego_agent_idx
+
+        self.observation_space = self._setup_observation_space()
+        self.share_observation_space = self.observation_space
+        self.action_space = gym.spaces.Discrete(Action.NUM_ACTIONS)
+
+        self.n_reset()
+
+    def _setup_observation_space(self):
+        obs_shape = np.array([self.width, self.height, 5 * self.num_players + 16])
+        return gym.spaces.MultiBinary(obs_shape)
+
+    def to_torch(self, a):
+        return a.to(self.device)
+
+    def get_obs(self):
+        obs0 = self.sim.observation.to_torch(device=self.device).reshape((self.num_players, self.num_envs, self.height, self.width, 5 * self.num_players + 16)).transpose(2, 3)
+        obs = [VectorObservation(torch.ones((self.num_envs,), dtype=torch.bool),
+                                 obs0[i])
+               for i in range(self.n_players)]
+
+        return obs
+
+    def n_step(self, actions):
+        # actions_device = self.static_agentID.get_device()
+        # actions = actions.to(actions_device if actions_device != -1 else torch.device('cpu'))
+        # self.static_actions.copy_(actions[self.static_agentID, self.static_worldID, :])
+        actions = actions.to(dtype=torch.int32)
+        self.sim.actions.from_torch(actions[:, :, 0])
+        self.sim.step()
+        
+        # self.static_scattered_rewards[self.static_agentID, self.static_worldID] = self.static_rewards
+
+        return self.get_obs(), self.sim.rewards.to_torch(device=self.device), self.sim.dones.to_torch(device=self.device), self.infos
+
+    def n_reset(self):
+        return self.get_obs()
+
+    def close(self, **kwargs):
+        pass
+
+
 from .overcooked_reimplement import DummyMDP
 
 MAX_NUM_INGREDIENTS = 3
