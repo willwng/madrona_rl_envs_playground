@@ -2,7 +2,7 @@ import taichi as ti
 import numpy as np
 from typing import List
 
-ti.init(arch=ti.cpu)
+ti.init(arch=ti.gpu)
 
 MAX_NUM_INGREDIENTS = 3
 NONE = 0
