@@ -1,6 +1,6 @@
 * Hanabi Environment
 
-This is an implementation of the Hanabi card game, a cooperative Dec-POMDP. This environment is based on [[https://github.com/deepmind/hanabi-learning-environment][Deepmind's Hanabi environment]] and contains some support for [[https://github.com/zoeyuchao/mappo][MAPPO's implementation]].
+This is an implementation of the Hanabi card game, a cooperative Dec-POMDP, built on the [[https://madrona-engine.github.io/][Madrona game engine]]. This environment is based on [[https://github.com/deepmind/hanabi-learning-environment][Deepmind's Hanabi environment]] and contains some support for [[https://github.com/zoeyuchao/mappo][MAPPO's implementation]].
 
 ** Installation
 

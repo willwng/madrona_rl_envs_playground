@@ -1,6 +1,6 @@
 * Balance Beam Environment
 
-This is a custom toy environment for MARL conventions research.
+This is a custom toy environment for MARL conventions research built on the [[https://madrona-engine.github.io/][Madrona game engine]].
 
 ** Installation
 

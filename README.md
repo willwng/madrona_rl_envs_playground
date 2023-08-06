@@ -2,7 +2,17 @@
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/bsarkar321/madrona_rl_envs/blob/master/overcooked_compiled_colab.ipynb)
 
-Implementation of various RL Environments in Madrona. You can also train an Overcooked agent in 2 minutes using the Google Colab link above.
+Implementation of various RL Environments using the [Madrona game engine](https://madrona-engine.github.io/). You can also train an Overcooked agent in 2 minutes using the Google Colab link above. You can also read our [post](https://bsarkar321.github.io/blog/overcooked_madrona/index.html) about the process of porting Overcooked to Madrona.
+
+## Environments
+
+This repo contains implementations of various RL environments. Please read the respective README files to test the installation.
+
+- [Balance Beam](src/balance_beam_env/README.org), a very simple 2-player cooperative game. This is a good starting point if you want to understand how to implement a simple environment in Madrona.
+- [Cartpole](src/cartpole_env/README.org), the classic single-player RL environment.
+- [Hanabi](src/hanabi_env/README.org), a standard environment for cooperative multi-agent RL with partial observability.
+- [Overcooked](src/overcooked_env/README.org), a 2D grid-based environment for cooperative multi-agent RL based on the Overcooked game.
+- [Overcooked (JS-compatible)](src/overcooked2_env/README.org), an older implementation of Overcooked that is compatible with a javascript interface. This is the version used in the Colab notebook.
 
 ## Requirements
 
@@ -46,13 +56,3 @@ NOTE: For cmake, you may need to specify the cuda tookit directory as follows:
 ```
 cmake -D CUDAToolkit_ROOT=/usr/local/cuda-12.0 ..
 ```
-
-## Environments
-
-This repo contains implementations of various RL environments. Please read the respective README files to test the installation.
-
-- [Balance Beam](src/balance_beam_env/README.org), a very simple 2-player cooperative game. This is a good starting point if you want to understand how to implement a simple environment in Madrona.
-- [Cartpole](src/cartpole_env/README.org), the classic single-player RL environment.
-- [Hanabi](src/hanabi_env/README.org), a standard environment for cooperative multi-agent RL with partial observability.
-- [Overcooked](src/overcooked_env/README.org), a 2D grid-based environment for cooperative multi-agent RL based on the Overcooked game.
-- [Overcooked (JS-compatible)](src/overcooked2_env/README.org), an older implementation of Overcooked that is compatible with a javascript interface. This is the version used in the Colab notebook.
