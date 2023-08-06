@@ -1,5 +1,5 @@
 * Overcooked Environment (JS-compatible)
-[[https://colab.research.google.com/github/bsarkar321/madrona_rl_envs/blob/master/overcooked_compiled_colab.ipynb][[[https://colab.research.google.com/assets/colab-badge.svg]]]]
+[[https://colab.research.google.com/github/bsarkar321/madrona_rl_envs/blob/master/overcooked_compiled_colab.ipynb][https://colab.research.google.com/assets/colab-badge.svg]]
 
 This is an implementation of an older version of the open source [[https://github.com/HumanCompatibleAI/overcooked_ai][Overcooked-AI]] environment that is compatible with a javascript demo, built on the [[https://madrona-engine.github.io/][Madrona game engine]]. You can also read our [[https://bsarkar321.github.io/blog/overcooked_madrona/index.html][post]] about the process of porting Overcooked to Madrona.
 
