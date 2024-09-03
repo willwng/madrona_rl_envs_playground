@@ -21,7 +21,7 @@ namespace Acrobat {
     MADRONA_IMPORT void step();
 
     MADRONA_IMPORT madrona::py::Tensor resetTensor() const; // Bool or Int32
-    MADRONA_IMPORT madrona::py::Tensor actionTensor() const; // Bool or Int32
+    MADRONA_IMPORT madrona::py::Tensor actionTensor() const; // Int32
     MADRONA_IMPORT madrona::py::Tensor stateTensor() const; // Vec4 Float32
     MADRONA_IMPORT madrona::py::Tensor rewardTensor() const; // Float32
 

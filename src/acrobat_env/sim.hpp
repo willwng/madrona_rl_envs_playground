@@ -34,15 +34,13 @@ namespace Acrobat {
     int32_t choice; // 3 Actions: (torque -1, 0, 1)
   };
 
-  // Observation Space:
-  // | Num | Observation                  | Min                 | Max               |
-  // |-----|------------------------------|---------------------|-------------------|
-  // | 0   | Cosine of `theta1`           | -1                  | 1                 |
-  // | 1   | Sine of `theta1`             | -1                  | 1                 |
-  // | 2   | Cosine of `theta2`           | -1                  | 1                 |
-  // | 3   | Sine of `theta2`             | -1                  | 1                 |
-  // | 4   | Angular velocity of `theta1` | ~ -12.567 (-4 * pi) | ~ 12.567 (4 * pi) |
-  // | 5   | Angular velocity of `theta2` | ~ -28.274 (-9 * pi) | ~ 28.274 (9 * pi) |
+    // Differs from observation space
+    // | Num | State                        | Unit  |
+    // |-----|------------------------------|-------|
+    // | 0   | theta1                       | rad   |
+    // | 1   | theta2                       | rad   |
+    // | 2   | Angular velocity of `theta1` | rad/s |
+    // | 3   | Angular velocity of `theta2` | rad/s |
   struct State {
     float theta1;
     float theta2;
@@ -50,6 +48,9 @@ namespace Acrobat {
     float omega2;
   };
 
+  // The goal is to have the free end reach a designated target height in as few steps as possibl        e,
+  //  and as such all steps that do not reach the goal incur a reward of -1.
+  //  Achieving the target height results in termination with a reward of 0. The reward threshold is -100.
   struct Reward {
     float rew;
   };

@@ -6,6 +6,7 @@ namespace Acrobat {
 
   struct EpisodeManager {
     madrona::AtomicU32 curEpisode;
+    uint32_t episodeLength; // current length of this episode
   };
 
   struct WorldInit {

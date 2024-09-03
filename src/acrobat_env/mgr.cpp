@@ -141,7 +141,7 @@ namespace Acrobat {
 
     switch (cfg.execMode) {
     case ExecMode::CPU: {
-      EpisodeManager *episode_mgr = new EpisodeManager { 0 };
+      EpisodeManager *episode_mgr = new EpisodeManager { 0, 0 };
       HeapArray<WorldInit> world_inits = setupWorldInitData(cfg.numWorlds, episode_mgr);
       return new CPUImpl(cfg, app_cfg, episode_mgr, world_inits.data());
     } break;
